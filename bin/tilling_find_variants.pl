@@ -54,6 +54,7 @@ my (%HET,%HOMO) = ();
 
 
 while (<$HET>) {
+    next unless ($_ !~ /^#/);
     my @vals = split /\t/, $_;
 
     my $hashkey = $vals[0] . ":" . $vals[1];
@@ -62,6 +63,30 @@ while (<$HET>) {
        $HET{$hashkey} = [$vals[3], $vals[4]]; 
     } else {
         die "'$hashkey' present more than 1X";
+    }
+}
+
+while (<$HOMO>) {
+    next unless ($_ !~ /^#/);
+    my @vals = split /\t/, $_;
+
+    my $hashkey = $vals[0] . ":" . $vals[1];
+
+    if (!$HOMO{$hashkey}) {
+       $HOMO{$hashkey} = [$vals[3], $vals[4]]; 
+    } else {
+        die "'$hashkey' present more than 1X";
+    }
+}
+
+if ($verbose) {
+    say "het loci: " . keys(%HET);
+    say "homo loci: " . keys(%HOMO);
+}
+
+for my $homokey (keys %HOMO) {
+    if ($HET{$homokey}) {
+        say "$homokey\tHET variant: " . $HET{$homokey}[0] . " -> " . $HET{$homokey}[1] . "\tHOMO variant: " . $HOMO{$homokey}[0] . " -> " . $HOMO{$homokey}[1];
     }
 }
 
