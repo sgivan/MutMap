@@ -29,15 +29,17 @@ use Getopt::Long; # use GetOptions function to for CL args
 use warnings;
 use strict;
 use Data::Dumper;
+use Statistics::Descriptive;
 use lib '/share/apps/perl5/vcftools/lib/site_perl/5.14.2';
 use Vcf;
 
-my ($debug,$verbose,$help,$infile,$outfile,$window,$blockcnt);
+my ($debug,$verbose,$help,$infile,$outfile,$window,$blockcnt,$tabstdout);
 
 my $result = GetOptions(
     "infile:s"  =>  \$infile,
     "outfile:s" =>  \$outfile,
     "window:i"  =>  \$window,
+    "tab"       =>  \$tabstdout,
     "debug"     =>  \$debug,
     "verbose"   =>  \$verbose,
     "help"      =>  \$help,
@@ -85,14 +87,58 @@ while (my $x=$vcf->next_data_array()) {
     ++$i;
     last if ($debug && ++$cnt >= 10);
 }
+
+# if there is data left over ...
 if (@SNPlocalblock) {
     push(@SNPblock,[@SNPlocalblock]);
 }
 
 if ($debug) {
     print Dumper(@SNPblock);
+    say "window count: $windowcnt";
 
 }
+
+# now build data structure to facilitate plotting the SNPindex
+#
+# follow general algorithm in paper specified by doi, above
+# take average SNPindex within a window and plot at middle of coordinate range
+#
+
+my $stat = Statistics::Descriptive::Full->new();
+my @plotdata = ();
+for my $windowdata (@SNPblock) {
+
+    my ($x,$y) = ();
+    my $lastidx = @$windowdata - 1;
+    #say "lastidx = $lastidx";
+    $stat->add_data($windowdata->[0]->[0], $windowdata->[$lastidx]->[0]);
+    say "mean coordinate: " . int($stat->mean()) if ($debug);
+    $x = int($stat->mean());
+    $stat->clear();
+
+    for my $datapt (@$windowdata) {
+        $stat->add_data($datapt->[2]);
+    }
+
+    say "mean SNPindex: " . $stat->mean() if ($debug);
+    $y = $stat->mean();
+
+    $stat->clear();
+    push(@plotdata, [$x, $y]);
+}
+
+if ($debug) {
+    say "data to plot:";
+    print Dumper(@plotdata);
+}
+
+if ($tabstdout) {
+    for my $xy (@plotdata) {
+        say $xy->[0] . "\t" . $xy->[1];
+    }
+}
+
 
 sub help {
 
@@ -101,6 +147,7 @@ say <<HELP;
     "infile:s"  =>  \$infile,
     "outfile:s" =>  \$outfile,
     "window:i"  =>  \$window,
+    "tab"       =>  \$tabstdout,
     "debug"     =>  \$debug,
     "verbose"   =>  \$verbose,
     "help"      =>  \$help,
