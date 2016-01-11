@@ -33,12 +33,13 @@ use Statistics::Descriptive;
 use lib '/share/apps/perl5/vcftools/lib/site_perl/5.14.2';
 use Vcf;
 
-my ($debug,$verbose,$help,$infile,$outfile,$window,$blockcnt,$tabstdout);
+my ($debug,$verbose,$help,$infile,$outfile,$window,$blockcnt,$tabstdout,$usemax);
 
 my $result = GetOptions(
     "infile:s"  =>  \$infile,
     "outfile:s" =>  \$outfile,
     "window:i"  =>  \$window,
+    "max"       =>  \$usemax,
     "tab"       =>  \$tabstdout,
     "debug"     =>  \$debug,
     "verbose"   =>  \$verbose,
@@ -121,8 +122,14 @@ for my $windowdata (@SNPblock) {
         $stat->add_data($datapt->[2]);
     }
 
-    say "mean SNPindex: " . $stat->mean() if ($debug);
-    $y = $stat->mean();
+    if ($usemax) {
+        say "max SNPindex: " . $stat->max() if ($debug);
+        $y = $stat->max();
+    } else {
+        say "mean SNPindex: " . $stat->mean() if ($debug);
+        $y = $stat->mean();
+    }
+
 
     $stat->clear();
     push(@plotdata, [$x, $y]);
@@ -144,9 +151,10 @@ sub help {
 
 say <<HELP;
 
-    "infile:s"  =>  \$infile,
-    "outfile:s" =>  \$outfile,
-    "window:i"  =>  \$window,
+    "infile:s"  =>  name of input file
+    "outfile:s" =>  name of output file
+    "window:i"  =>  window size; ie, the number of SNP's to include in the SNP index calculation
+    "max"       =>  instead of average in a window, use the maximum SNP index
     "tab"       =>  \$tabstdout,
     "debug"     =>  \$debug,
     "verbose"   =>  \$verbose,
