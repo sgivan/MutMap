@@ -37,8 +37,9 @@ use Bio::DB::SeqFeature::Store;
 use Bio::DB::SeqFeature::Store::GFF3Loader;
 use lib '/share/apps/perl5/vcftools/lib/site_perl/5.14.2';
 use Vcf;
+$Data::Dumper::Deepcopy = 1;
 
-my ($debug,$verbose,$help,$infile,$outfile,$window,$blockcnt,$tabstdout,$usemax,$maskedseqs,$gff);
+my ($debug,$verbose,$help,$infile,$outfile,$window,$blockcnt,$tabstdout,$usemax,$maskedseqs,$gff,$overlap,$usemedian);
 
 my $result = GetOptions(
     "infile:s"  =>  \$infile,
@@ -48,6 +49,8 @@ my $result = GetOptions(
     "maskedseqs:s"   =>  \$maskedseqs,
     "gff:s"         =>  \$gff,
     "tab"       =>  \$tabstdout,
+    "overlap"       =>  \$overlap,
+    "median"        =>  \$usemedian,
     "debug"     =>  \$debug,
     "verbose"   =>  \$verbose,
     "help"      =>  \$help,
@@ -90,7 +93,7 @@ if ($gff) {
 
 my ($cnt,$i,$windowcnt) = (0,0,1);
 my (@SNPblock,@SNPlocalblock) = ();
- my $seq;
+my $seq;
 while (my $x=$vcf->next_data_array()) {
     my $info_column = $vcf->get_column($x,'INFO');
     my $DP4 = $vcf->get_info_field($info_column,'DP4');
@@ -100,7 +103,6 @@ while (my $x=$vcf->next_data_array()) {
    
     my $SNP_index = ($read_cnt[2] + $read_cnt[3])/($read_cnt[0] + $read_cnt[1] + $read_cnt[2] + $read_cnt[3]);
 
-#    my $seq;
     if ($maskedseqs) {
         $seq = $db->get_Seq_by_id($refID);
         my $nt = $seq->subseq($x->[1] => $x->[1]);
@@ -112,6 +114,7 @@ while (my $x=$vcf->next_data_array()) {
     }
 
     if ($gff) {
+        say "checking for features that overlap location " . $x->[1] if ($debug);
         my @tfeatures = $gffdb->get_features_by_location(
             -seq_id     =>  $refID,
             -start      =>  $x->[1],
@@ -134,20 +137,30 @@ while (my $x=$vcf->next_data_array()) {
     }
 
     # build array of windows (array of arrays)
+    last if ($debug && $windowcnt > 5);
     if ($i >= $window) {
-        say "pushing SNPlocalblock onto SNPblock" if ($debug);
-        push(@SNPblock,[@SNPlocalblock]);
-        @SNPlocalblock = ();
-        $i = 0;
+        if (!$overlap) {
+            say "pushing " . Dumper(@SNPlocalblock) . " onto SNPblock" if ($debug);
+            push(@SNPblock,[@SNPlocalblock]);
+            @SNPlocalblock = ();
+            $i = 0;
+            redo;
+        } else {
+            # treat @SNPlocalblock as a filo 5 element buffer
+            push(@SNPblock,[@SNPlocalblock]);
+            say "before shift: \@SNPlocalblock: " . Dumper(@SNPlocalblock) if ($debug);
+            shift(@SNPlocalblock);
+            say "after shift: \@SNPlocalblock: " . Dumper(@SNPlocalblock) if ($debug);
+            push(@SNPlocalblock,[$x->[1], $DP4, $SNP_index]);
+            say "after push: \@SNPlocalblock: " . Dumper(@SNPlocalblock) if ($debug);
+        }
         ++$windowcnt;
-        redo;
     } elsif ($i < $window) {
         say "adding to SNPlocalblock" if ($debug);
         push(@SNPlocalblock, [$x->[1], $DP4, $SNP_index]);
     }
 
     ++$i;
-    last if ($debug && ++$cnt >= 5);
 }
 
 # if there is data left over ...
@@ -156,6 +169,7 @@ if (@SNPlocalblock) {
 }
 
 if ($debug) {
+    say "Dump of \@SNPblock: ";
     print Dumper(@SNPblock);
     say "window count: $windowcnt";
 
@@ -174,9 +188,17 @@ for my $windowdata (@SNPblock) {
     my ($x,$y) = ();
     my $lastidx = @$windowdata - 1;
     #say "lastidx = $lastidx";
-    $stat->add_data($windowdata->[0]->[0], $windowdata->[$lastidx]->[0]);
-    say "mean coordinate: " . int($stat->mean()) if ($debug);
-    $x = int($stat->mean());
+    for my $datapt (@$windowdata) {
+        $stat->add_data($datapt->[0]);
+    }
+    #$stat->add_data($windowdata->[0]->[0], $windowdata->[$lastidx]->[0]);
+    if ($usemedian) {
+        say "median coordinate: " . int($stat->median()) if ($debug);
+        $x = int($stat->median());
+    } else {
+        say "mean coordinate: " . int($stat->mean()) if ($debug);
+        $x = int($stat->mean());
+    }
     $stat->clear();
 
     for my $datapt (@$windowdata) {
@@ -219,6 +241,8 @@ say <<HELP;
     "maskedseq:s"   =>  name of FASTA file containing masked sequences
     "gff:s"         =>  name of GFF3 file containing sequences to include -- happens after maskedseq.
     "tab"           =>  \$tabstdout,
+    "overlap"       =>  overlap windows - default behavior does not overlap windows
+    "median"        =>  use the median as the window genome coordinate instead of the mean
     "debug"         =>  \$debug,
     "verbose"       =>  \$verbose,
     "help"          =>  \$help,
