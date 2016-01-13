@@ -37,17 +37,19 @@ use Bio::Annotation::StructuredValue;
 # see blast documentation for a description
 #
 
-my ($debug,$verbose,$help,$infile,$gffversion);
+my ($debug,$verbose,$help,$infile,$gffversion,$outfile);
 
 my $result = GetOptions(
     "debug"     =>  \$debug,
     "verbose"   =>  \$verbose,
     "infile:s"  =>  \$infile,
+    "outfile:s" =>  \$outfile,
     "gffversion:f"  =>  \$gffversion,
     "help"      =>  \$help,
 );
 
 $gffversion = 3 unless ($gffversion);
+$outfile = 'outfile.gff' unless ($outfile);
 
 if ($help) {
     help();
@@ -56,7 +58,7 @@ if ($help) {
 
 open(my $infh, "<", $infile);
 
-my ($cnt) = (0);
+my ($cnt,$currID,$prevID) = (0);
 my @features = ();
 while (<$infh>) {
     next if (substr($_,0,1) eq '#'); # fast way to skip comments
@@ -73,6 +75,7 @@ while (<$infh>) {
     #           0           1           2           3               4           5           6       7       8           9       10      11
 
     my ($queryID,$subjID,$perc_identity,$subj_start,$subj_end,$bitscore) = ($vals[0],$vals[1],$vals[2],$vals[8],$vals[9],$vals[11]);
+    $currID = $queryID;
 
     $bitscore =~ s/ //g;
 
@@ -96,7 +99,7 @@ while (<$infh>) {
     my $sv = Bio::Annotation::StructuredValue->new(-value => $cnt);
     $sv->tagname('ID');
     $feature->add_Annotation($sv);
-    my $sv2 = Bio::Annotation::StructuredValue->new( -value => $queryID);
+    my $sv2 = Bio::Annotation::StructuredValue->new( -value => $queryID . "_" . $cnt);
     $sv2->tagname('Name');
     $feature->add_Annotation($sv2);
 
@@ -104,13 +107,15 @@ while (<$infh>) {
     last if ($debug && $cnt >= 20);
 
     push(@features,$feature);
+    $prevID = $currID;
 }
 
 my $featureout = Bio::FeatureIO->new(
     -format     =>  'gff',
     -version    =>  $gffversion,
-    -fh         =>  \*STDOUT,
-#    -validate_terms =>  1,
+    -file       =>  ">$outfile",
+#    -fh         =>  \*STDOUT,
+#    -validate_terms =>  1,# throws an error
 );
 for my $feature (@features) {
     $featureout->write_feature($feature);
@@ -124,6 +129,9 @@ say <<HELP;
     "verbose"   =>  \$verbose,
     "infile:s"  =>  \$infile,
     "help"      =>  \$help,
+
+    Typical invocation is similar to:
+    blast2gff.pl --infile ../test/blastoutput_07.txt
 
 HELP
 
