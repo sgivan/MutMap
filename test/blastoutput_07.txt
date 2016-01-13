@@ -1,0 +1,50 @@
+# BLASTN 2.2.26+
+# Query: Glyma.10G030500.1 pacid=30473661 polypeptide=Glyma.10G030500.1.p locus=Glyma.10G030500 ID=Glyma.10G030500.1.Wm82.a2.v1 annot-version=Wm82.a2.v1
+# Database: ./blastdb/ForrestConcat
+# Fields: query id, subject id, % identity, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score
+# 8 hits found
+Glyma.10G030500.1	concatseq	100.00	163	0	0	76	238	608964832	608964670	4e-80	 302
+Glyma.10G030500.1	concatseq	100.00	137	0	0	314	450	608964061	608963925	1e-65	 254
+Glyma.10G030500.1	concatseq	97.81	137	3	0	314	450	289321046	289320910	1e-60	 237
+Glyma.10G030500.1	concatseq	92.02	163	13	0	76	238	289321809	289321647	2e-58	 230
+Glyma.10G030500.1	concatseq	100.00	80	0	0	236	315	608964425	608964346	6e-34	 148
+Glyma.10G030500.1	concatseq	98.72	78	1	0	1	78	608965097	608965020	3e-31	 139
+Glyma.10G030500.1	concatseq	97.50	80	2	0	236	315	289321418	289321339	1e-30	 137
+Glyma.10G030500.1	concatseq	97.44	78	2	0	1	78	289322019	289321942	2e-29	 134
+# BLASTN 2.2.26+
+# Query: Glyma.10G053100.1 pacid=30473662 polypeptide=Glyma.10G053100.1.p locus=Glyma.10G053100 ID=Glyma.10G053100.1.Wm82.a2.v1 annot-version=Wm82.a2.v1
+# Database: ./blastdb/ForrestConcat
+# Fields: query id, subject id, % identity, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score
+# 2 hits found
+Glyma.10G053100.1	concatseq	99.60	501	2	0	1	501	463103917	463103417	0.0	 915
+Glyma.10G053100.1	concatseq	93.94	495	30	0	1	495	710126589	710127083	0.0	 749
+# BLASTN 2.2.26+
+# Query: Glyma.10G008400.1 pacid=30473663 polypeptide=Glyma.10G008400.1.p locus=Glyma.10G008400 ID=Glyma.10G008400.1.Wm82.a2.v1 annot-version=Wm82.a2.v1
+# Database: ./blastdb/ForrestConcat
+# Fields: query id, subject id, % identity, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score
+# 2 hits found
+Glyma.10G008400.1	concatseq	99.75	813	2	0	1	813	667690113	667690925	0.0	1491
+Glyma.10G008400.1	concatseq	90.50	821	56	14	1	813	472703303	472704109	0.0	1064
+# BLASTN 2.2.26+
+# Query: Glyma.10G106600.1 pacid=30473664 polypeptide=Glyma.10G106600.1.p locus=Glyma.10G106600 ID=Glyma.10G106600.1.Wm82.a2.v1 annot-version=Wm82.a2.v1
+# Database: ./blastdb/ForrestConcat
+# Fields: query id, subject id, % identity, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score
+# 20 hits found
+Glyma.10G106600.1	concatseq	100.00	488	0	0	1397	1884	590989543	590989056	0.0	 902
+Glyma.10G106600.1	concatseq	93.46	489	30	2	1397	1884	659046411	659045924	0.0	 725
+Glyma.10G106600.1	concatseq	100.00	245	0	0	663	907	590991334	590991090	5e-125	 453
+Glyma.10G106600.1	concatseq	100.00	221	0	0	1	221	590992898	590992678	1e-111	 409
+Glyma.10G106600.1	concatseq	95.92	245	10	0	663	907	659047884	659047640	2e-108	 398
+Glyma.10G106600.1	concatseq	100.00	210	0	0	1193	1402	590990486	590990277	1e-105	 388
+Glyma.10G106600.1	concatseq	100.00	207	0	0	220	426	590992549	590992343	6e-104	 383
+Glyma.10G106600.1	concatseq	99.47	190	1	0	1011	1200	590990779	590990590	8e-93	 346
+Glyma.10G106600.1	concatseq	96.19	210	8	0	1193	1402	659047038	659046829	3e-92	 344
+Glyma.10G106600.1	concatseq	92.76	221	16	0	1	221	659049532	659049312	5e-85	 320
+Glyma.10G106600.1	concatseq	92.27	207	11	2	220	426	659049128	659048927	1e-75	 289
+Glyma.10G106600.1	concatseq	93.99	183	11	0	1013	1195	659047327	659047145	3e-72	 278
+Glyma.10G106600.1	concatseq	100.00	148	0	0	516	663	590991926	590991779	4e-71	 274
+Glyma.10G106600.1	concatseq	97.97	148	3	0	516	663	659048500	659048353	4e-66	 257
+Glyma.10G106600.1	concatseq	99.11	112	0	1	900	1011	590990982	590990872	7e-49	 200
+Glyma.10G106600.1	concatseq	95.54	112	4	1	900	1011	659047529	659047419	3e-42	 178
+Glyma.10G106600.1	concatseq	100.00	95	0	0	424	518	590992112	590992018	1e-41	 176
+Glyma.10G106600.1	concatseq	96.84	95	3	0	424	518	659048683	659048589	1e-36	 159

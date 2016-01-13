@@ -30,16 +30,19 @@ use warnings;
 use strict;
 use Data::Dumper;
 use Statistics::Descriptive;
+use Bio::SeqIO;
+use Bio::DB::Fasta;
 use lib '/share/apps/perl5/vcftools/lib/site_perl/5.14.2';
 use Vcf;
 
-my ($debug,$verbose,$help,$infile,$outfile,$window,$blockcnt,$tabstdout,$usemax);
+my ($debug,$verbose,$help,$infile,$outfile,$window,$blockcnt,$tabstdout,$usemax,$maskedseqs);
 
 my $result = GetOptions(
     "infile:s"  =>  \$infile,
     "outfile:s" =>  \$outfile,
     "window:i"  =>  \$window,
     "max"       =>  \$usemax,
+    "maskedseqs:s"   =>  \$maskedseqs,
     "tab"       =>  \$tabstdout,
     "debug"     =>  \$debug,
     "verbose"   =>  \$verbose,
@@ -57,14 +60,37 @@ $window = 5 unless ($window);
 my $vcf = Vcf->new(file=>$infile);
 $vcf->parse_header();
 
+my $db;
+if ($maskedseqs) {
+    $db      = Bio::DB::Fasta->new($maskedseqs);
+    if ($debug) {
+        say "reading masked sequence files in '$maskedseqs'" if ($debug);
+        say "\$db isa " . ref($db);
+    }
+}
+
 my ($cnt,$i,$windowcnt) = (0,0,1);
 my (@SNPblock,@SNPlocalblock) = ();
+ my $seq;
 while (my $x=$vcf->next_data_array()) {
     my $info_column = $vcf->get_column($x,'INFO');
     my $DP4 = $vcf->get_info_field($info_column,'DP4');
+    my $refID = $vcf->get_column($x,'CHROM');
+    say "refID = '$refID'" if ($debug);
     my @read_cnt = split /,/, $DP4;
    
     my $SNP_index = ($read_cnt[2] + $read_cnt[3])/($read_cnt[0] + $read_cnt[1] + $read_cnt[2] + $read_cnt[3]);
+
+#    my $seq;
+    if ($maskedseqs) {
+        $seq = $db->get_Seq_by_id($refID);
+        my $nt = $seq->subseq($x->[1] => $x->[1]);
+        say "nt from masked file: '$nt'" if ($debug);
+        if ($nt eq 'N') {
+            say "skipping" if ($debug);
+            next;
+        }
+    }
     
     if ($debug) {
         say "\nwindow cnt = $windowcnt";
@@ -86,7 +112,7 @@ while (my $x=$vcf->next_data_array()) {
     }
 
     ++$i;
-    last if ($debug && ++$cnt >= 10);
+    last if ($debug && ++$cnt >= 20);
 }
 
 # if there is data left over ...
@@ -151,14 +177,15 @@ sub help {
 
 say <<HELP;
 
-    "infile:s"  =>  name of input file
-    "outfile:s" =>  name of output file
-    "window:i"  =>  window size; ie, the number of SNP's to include in the SNP index calculation
-    "max"       =>  instead of average in a window, use the maximum SNP index
-    "tab"       =>  \$tabstdout,
-    "debug"     =>  \$debug,
-    "verbose"   =>  \$verbose,
-    "help"      =>  \$help,
+    "infile:s"      =>  name of input file
+    "outfile:s"     =>  name of output file
+    "window:i"      =>  window size; ie, the number of SNP's to include in the SNP index calculation
+    "max"           =>  instead of average in a window, use the maximum SNP index
+    "maskedseq:s"   =>  name of FASTA file containing masked sequences
+    "tab"           =>  \$tabstdout,
+    "debug"         =>  \$debug,
+    "verbose"       =>  \$verbose,
+    "help"          =>  \$help,
 
 HELP
 
