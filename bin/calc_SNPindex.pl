@@ -32,10 +32,13 @@ use Data::Dumper;
 use Statistics::Descriptive;
 use Bio::SeqIO;
 use Bio::DB::Fasta;
+#use Bio::DB::GFF;
+use Bio::DB::SeqFeature::Store;
+use Bio::DB::SeqFeature::Store::GFF3Loader;
 use lib '/share/apps/perl5/vcftools/lib/site_perl/5.14.2';
 use Vcf;
 
-my ($debug,$verbose,$help,$infile,$outfile,$window,$blockcnt,$tabstdout,$usemax,$maskedseqs);
+my ($debug,$verbose,$help,$infile,$outfile,$window,$blockcnt,$tabstdout,$usemax,$maskedseqs,$gff);
 
 my $result = GetOptions(
     "infile:s"  =>  \$infile,
@@ -43,6 +46,7 @@ my $result = GetOptions(
     "window:i"  =>  \$window,
     "max"       =>  \$usemax,
     "maskedseqs:s"   =>  \$maskedseqs,
+    "gff:s"         =>  \$gff,
     "tab"       =>  \$tabstdout,
     "debug"     =>  \$debug,
     "verbose"   =>  \$verbose,
@@ -62,10 +66,25 @@ $vcf->parse_header();
 
 my $db;
 if ($maskedseqs) {
+    # Bio::DB::SeqFeature::Store
     $db      = Bio::DB::Fasta->new($maskedseqs);
     if ($debug) {
-        say "reading masked sequence files in '$maskedseqs'" if ($debug);
+        say "reading masked sequence files in '$maskedseqs'";
         say "\$db isa " . ref($db);
+    }
+}
+
+my $gffdb;
+if ($gff) {
+    # Bio::DB::SeqFeature::Store
+    say "loading GFF file '$gff'" if ($debug);
+    $gffdb = Bio::DB::SeqFeature::Store->new( -adaptor => 'memory', -dsn => $gff);
+#    my $loader = Bio::DB::SeqFeature::Store::GFFLoader->new( -store => $gffdb );
+#    $loader->load($gff);
+
+    if ($debug) {
+        say "loaded GFF file";
+        say "\$gffdb isa '" . ref($gffdb) . "'";
     }
 }
 
@@ -76,7 +95,7 @@ while (my $x=$vcf->next_data_array()) {
     my $info_column = $vcf->get_column($x,'INFO');
     my $DP4 = $vcf->get_info_field($info_column,'DP4');
     my $refID = $vcf->get_column($x,'CHROM');
-    say "refID = '$refID'" if ($debug);
+    #say "refID = '$refID'" if ($debug);
     my @read_cnt = split /,/, $DP4;
    
     my $SNP_index = ($read_cnt[2] + $read_cnt[3])/($read_cnt[0] + $read_cnt[1] + $read_cnt[2] + $read_cnt[3]);
@@ -90,6 +109,22 @@ while (my $x=$vcf->next_data_array()) {
             say "skipping" if ($debug);
             next;
         }
+    }
+
+    if ($gff) {
+        my @tfeatures = $gffdb->get_features_by_location(
+            -seq_id     =>  $refID,
+            -start      =>  $x->[1],
+            -end        =>  $x->[1],
+        );
+
+        if (scalar(@tfeatures)) {
+            say "overlapping features at location " . $x->[1] . ": " . scalar(@tfeatures) if ($debug);
+        } else {
+            say "no overlapping features at location " . $x->[1] if ($debug);
+            next;
+        }
+
     }
     
     if ($debug) {
@@ -112,7 +147,7 @@ while (my $x=$vcf->next_data_array()) {
     }
 
     ++$i;
-    last if ($debug && ++$cnt >= 20);
+    last if ($debug && ++$cnt >= 5);
 }
 
 # if there is data left over ...
@@ -182,10 +217,14 @@ say <<HELP;
     "window:i"      =>  window size; ie, the number of SNP's to include in the SNP index calculation
     "max"           =>  instead of average in a window, use the maximum SNP index
     "maskedseq:s"   =>  name of FASTA file containing masked sequences
+    "gff:s"         =>  name of GFF3 file containing sequences to include -- happens after maskedseq.
     "tab"           =>  \$tabstdout,
     "debug"         =>  \$debug,
     "verbose"       =>  \$verbose,
     "help"          =>  \$help,
+
+    --maskedseq is a negative filter. It causes the script to ignore potential SNPs in the masked regions.
+    --gff is a positive filter. It causes the script to accept potential SNPs only in the specified regions.
 
 HELP
 
