@@ -39,7 +39,7 @@ use lib '/share/apps/perl5/vcftools/lib/site_perl/5.14.2';
 use Vcf;
 $Data::Dumper::Deepcopy = 1;
 
-my ($debug,$verbose,$help,$infile,$outfile,$window,$blockcnt,$tabstdout,$usemax,$maskedseqs,$gff,$overlap,$usemedian);
+my ($debug,$verbose,$help,$infile,$outfile,$window,$blockcnt,$tabstdout,$usemax,$maskedseqs,$gff,$overlap,$usemedian,$ignorefile);
 
 my $result = GetOptions(
     "infile:s"  =>  \$infile,
@@ -47,6 +47,7 @@ my $result = GetOptions(
     "window:i"  =>  \$window,
     "max"       =>  \$usemax,
     "maskedseqs:s"   =>  \$maskedseqs,
+    "ignore:s"      => \$ignorefile,
     "gff:s"         =>  \$gff,
     "tab"       =>  \$tabstdout,
     "overlap"       =>  \$overlap,
@@ -151,13 +152,13 @@ while (my $x=$vcf->next_data_array()) {
             say "before shift: \@SNPlocalblock: " . Dumper(@SNPlocalblock) if ($debug);
             shift(@SNPlocalblock);
             say "after shift: \@SNPlocalblock: " . Dumper(@SNPlocalblock) if ($debug);
-            push(@SNPlocalblock,[$x->[1], $DP4, $SNP_index]);
+            push(@SNPlocalblock,[$x->[1], $DP4, $SNP_index, $refID]);
             say "after push: \@SNPlocalblock: " . Dumper(@SNPlocalblock) if ($debug);
         }
         ++$windowcnt;
     } elsif ($i < $window) {
         say "adding to SNPlocalblock" if ($debug);
-        push(@SNPlocalblock, [$x->[1], $DP4, $SNP_index]);
+        push(@SNPlocalblock, [$x->[1], $DP4, $SNP_index, $refID]);
     }
 
     ++$i;
@@ -185,11 +186,12 @@ my $stat = Statistics::Descriptive::Full->new();
 my @plotdata = ();
 for my $windowdata (@SNPblock) {
 
-    my ($x,$y) = ();
+    my ($x,$y,$refmol) = ();
     my $lastidx = @$windowdata - 1;
     #say "lastidx = $lastidx";
     for my $datapt (@$windowdata) {
         $stat->add_data($datapt->[0]);
+        $refmol = $datapt->[3] unless ($refmol);
     }
     #$stat->add_data($windowdata->[0]->[0], $windowdata->[$lastidx]->[0]);
     if ($usemedian) {
@@ -215,7 +217,7 @@ for my $windowdata (@SNPblock) {
 
 
     $stat->clear();
-    push(@plotdata, [$x, $y]);
+    push(@plotdata, [$x, $y, $refmol]);
 }
 
 if ($debug) {
@@ -225,7 +227,7 @@ if ($debug) {
 
 if ($tabstdout) {
     for my $xy (@plotdata) {
-        say $xy->[0] . "\t" . $xy->[1];
+        say $xy->[0] . "\t" . $xy->[1] . "\t" . $xy->[2]
     }
 }
 
@@ -238,7 +240,8 @@ say <<HELP;
     "outfile:s"     =>  name of output file
     "window:i"      =>  window size; ie, the number of SNP's to include in the SNP index calculation
     "max"           =>  instead of average in a window, use the maximum SNP index
-    "maskedseq:s"   =>  name of FASTA file containing masked sequences
+    "maskedseq:s"   =>  name of FASTA file containing masked sequences to ignore
+    "ignore:s"      =>  name of tab-delimited file containing coordinates to ignore in first column
     "gff:s"         =>  name of GFF3 file containing sequences to include -- happens after maskedseq.
     "tab"           =>  \$tabstdout,
     "overlap"       =>  overlap windows - default behavior does not overlap windows
@@ -247,7 +250,7 @@ say <<HELP;
     "verbose"       =>  \$verbose,
     "help"          =>  \$help,
 
-    --maskedseq is a negative filter. It causes the script to ignore potential SNPs in the masked regions.
+    --maskedseq & --ignore are negative filters. They cause the script to ignore potential SNPs in the masked regions or specified coordinates.
     --gff is a positive filter. It causes the script to accept potential SNPs only in the specified regions.
 
 HELP
