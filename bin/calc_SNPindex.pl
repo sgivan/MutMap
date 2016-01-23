@@ -78,6 +78,27 @@ if ($maskedseqs) {
     }
 }
 
+my %ignoreDB = (); 
+# expect file with coordinate in column 1 and sequence ID in column 3
+if ($ignorefile) {
+    open(my $IG, "<", $ignorefile);
+    for my $line (<$IG>) {
+        chomp($line);
+        my @linevals = split "\t", $line;
+        # keys are "refID:coordinate"
+        ++$ignoreDB{$linevals[2] . ":" . $linevals[0]};
+    }
+    close($IG);
+}
+
+if ($debug) {
+    my $cnt = 0;
+    for my $key (keys(%ignoreDB)) {
+        say "ignoreDB key: '$key'";
+        last if (++$cnt > 10);
+    }
+}
+
 my $gffdb;
 if ($gff) {
     # Bio::DB::SeqFeature::Store
@@ -99,6 +120,8 @@ while (my $x=$vcf->next_data_array()) {
     my $info_column = $vcf->get_column($x,'INFO');
     my $DP4 = $vcf->get_info_field($info_column,'DP4');
     my $refID = $vcf->get_column($x,'CHROM');
+    my $coord = $vcf->get_column($x,'POS');
+    #say "coord = '$coord'" if ($debug);
     #say "refID = '$refID'" if ($debug);
     my @read_cnt = split /,/, $DP4;
    
@@ -106,7 +129,7 @@ while (my $x=$vcf->next_data_array()) {
 
     if ($maskedseqs) {
         $seq = $db->get_Seq_by_id($refID);
-        my $nt = $seq->subseq($x->[1] => $x->[1]);
+        my $nt = $seq->subseq($coord => $coord);
         say "nt from masked file: '$nt'" if ($debug);
         if ($nt eq 'N') {
             say "skipping" if ($debug);
@@ -114,18 +137,27 @@ while (my $x=$vcf->next_data_array()) {
         }
     }
 
+    if ($ignorefile) {
+        my $hashkey = $refID . ":" . $coord;
+        say "checking if I should ignore '$hashkey'" if ($debug);
+        if (exists($ignoreDB{$hashkey})) {
+            say "ignoring potential SNP at coordinate " . $coord . " because it is in '$ignorefile'" if ($debug);
+            next;
+        }
+    }
+
     if ($gff) {
-        say "checking for features that overlap location " . $x->[1] if ($debug);
+        say "checking for features that overlap location " . $coord if ($debug);
         my @tfeatures = $gffdb->get_features_by_location(
             -seq_id     =>  $refID,
-            -start      =>  $x->[1],
-            -end        =>  $x->[1],
+            -start      =>  $coord,
+            -end        =>  $coord,
         );
 
         if (scalar(@tfeatures)) {
-            say "overlapping features at location " . $x->[1] . ": " . scalar(@tfeatures) if ($debug);
+            say "overlapping features at location " . $coord . ": " . scalar(@tfeatures) if ($debug);
         } else {
-            say "no overlapping features at location " . $x->[1] if ($debug);
+            say "no overlapping features at location " . $coord if ($debug);
             next;
         }
 
@@ -134,11 +166,11 @@ while (my $x=$vcf->next_data_array()) {
     if ($debug) {
         say "\nwindow cnt = $windowcnt";
         say "i = $i";
-        printf "%i\t%s\t%3.2f\n", $x->[1], $DP4, $SNP_index;
+        printf "%i\t%s\t%3.2f\n", $coord, $DP4, $SNP_index;
     }
 
     # build array of windows (array of arrays)
-    last if ($debug && $windowcnt > 5);
+    last if ($debug && $windowcnt > 1000);
     if ($i >= $window) {
         if (!$overlap) {
             say "pushing " . Dumper(@SNPlocalblock) . " onto SNPblock" if ($debug);
@@ -152,13 +184,13 @@ while (my $x=$vcf->next_data_array()) {
             say "before shift: \@SNPlocalblock: " . Dumper(@SNPlocalblock) if ($debug);
             shift(@SNPlocalblock);
             say "after shift: \@SNPlocalblock: " . Dumper(@SNPlocalblock) if ($debug);
-            push(@SNPlocalblock,[$x->[1], $DP4, $SNP_index, $refID]);
+            push(@SNPlocalblock,[$coord, $DP4, $SNP_index, $refID]);
             say "after push: \@SNPlocalblock: " . Dumper(@SNPlocalblock) if ($debug);
         }
         ++$windowcnt;
     } elsif ($i < $window) {
         say "adding to SNPlocalblock" if ($debug);
-        push(@SNPlocalblock, [$x->[1], $DP4, $SNP_index, $refID]);
+        push(@SNPlocalblock, [$coord, $DP4, $SNP_index, $refID]);
     }
 
     ++$i;
@@ -241,7 +273,7 @@ say <<HELP;
     "window:i"      =>  window size; ie, the number of SNP's to include in the SNP index calculation
     "max"           =>  instead of average in a window, use the maximum SNP index
     "maskedseq:s"   =>  name of FASTA file containing masked sequences to ignore
-    "ignore:s"      =>  name of tab-delimited file containing coordinates to ignore in first column
+    "ignore:s"      =>  name of tab-delimited file containing coordinates to ignore in first column and reference sequence ID in column 3
     "gff:s"         =>  name of GFF3 file containing sequences to include -- happens after maskedseq.
     "tab"           =>  \$tabstdout,
     "overlap"       =>  overlap windows - default behavior does not overlap windows
@@ -256,6 +288,4 @@ say <<HELP;
 HELP
 
 }
-
-
 
