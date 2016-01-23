@@ -39,7 +39,7 @@ use lib '/share/apps/perl5/vcftools/lib/site_perl/5.14.2';
 use Vcf;
 $Data::Dumper::Deepcopy = 1;
 
-my ($debug,$verbose,$help,$infile,$outfile,$window,$blockcnt,$tabstdout,$usemax,$maskedseqs,$gff,$overlap,$usemedian,$ignorefile);
+my ($debug,$verbose,$help,$infile,$outfile,$window,$blockcnt,$tabstdout,$usemax,$maskedseqs,$gff,$overlap,$usemedian,$ignorefile,$onlyones);
 
 my $result = GetOptions(
     "infile:s"  =>  \$infile,
@@ -52,6 +52,7 @@ my $result = GetOptions(
     "tab"       =>  \$tabstdout,
     "overlap"       =>  \$overlap,
     "median"        =>  \$usemedian,
+    "onlyones"      =>  \$onlyones,
     "debug"     =>  \$debug,
     "verbose"   =>  \$verbose,
     "help"      =>  \$help,
@@ -259,6 +260,9 @@ if ($debug) {
 
 if ($tabstdout) {
     for my $xy (@plotdata) {
+        if ($onlyones) {
+            next if ($xy->[1] < 1);
+        }
         say $xy->[0] . "\t" . $xy->[1] . "\t" . $xy->[2]
     }
 }
@@ -278,6 +282,7 @@ say <<HELP;
     "tab"           =>  \$tabstdout,
     "overlap"       =>  overlap windows - default behavior does not overlap windows
     "median"        =>  use the median as the window genome coordinate instead of the mean
+    "onlyones"      =>  only output sites with SNPindex = 1
     "debug"         =>  \$debug,
     "verbose"       =>  \$verbose,
     "help"          =>  \$help,
