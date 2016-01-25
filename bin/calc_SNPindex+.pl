@@ -41,7 +41,8 @@ use lib '/share/apps/perl5/vcftools/lib/site_perl/5.14.2';
 use Vcf;
 $Data::Dumper::Deepcopy = 1;
 
-my ($debug,$verbose,$help,$homoinfile,$hetinfile,$refseqfile,$outfile,$window,$increment,$blockcnt,$tabstdout,$usemax,$maskedseqs,$gff,$overlap,$usemedian,$ignorefile,$onlyones);
+my
+($debug,$verbose,$help,$homoinfile,$hetinfile,$refseqfile,$outfile,$window,$increment,$blockcnt,$tabstdout,$usemax,$maskedseqs,$gff,$overlap,$usemedian,$ignorefile,$onlyones,$usemaxcoord);
 
 my $result = GetOptions(
     "homoinfile:s"  =>  \$homoinfile,
@@ -57,6 +58,7 @@ my $result = GetOptions(
     "tab"       =>  \$tabstdout,
     "overlap"       =>  \$overlap,
     "median"        =>  \$usemedian,
+    "maxcoord"      =>  \$usemaxcoord,
     "onlyones"      =>  \$onlyones,
     "debug"     =>  \$debug,
     "verbose"   =>  \$verbose,
@@ -117,7 +119,7 @@ my $refseqIO = Bio::SeqIO->new(
     -file   =>  $refseqfile,
     -format =>  'fasta',
 );
-
+say "\$refseqIO is a '", ref($refseqIO), "'" if ($debug);
 
 my $db;
 if ($maskedseqs) {
@@ -170,28 +172,44 @@ my $seq;
 while (my $refseq = $refseqIO->next_seq()) {
     my $refseqlength = $refseq->length();
     my $start = 1;
-    my $refID = $seq->name();
+    my $refID = $refseq->id();
+    say "refseq: '$refID'. length: '$refseqlength'" if ($debug);
     # $window is defined above
     # $increment is defined above
+    my $window_SNP_index = 0;
     for (my ($j,$k) = ($start,$start + $window - 1); $j <= $refseqlength; $j += $increment, $k += $increment) {
-        say "\$i = '$i', \$k = '$k'" if ($debug);
-        my $homovcf = Vcf->new( file => $homoinfile, region => "$refID:$j" . "-" . $k);
-        #my $hetvcf = Vcf->new( file =>  $hetinfile, region  => "$refID:$j" . "-" . $k);
+        print "\n" if ($debug);
+        last if (++$cnt >= 100 && $debug);
+        say "cnt = $cnt" if ($debug);
+        
+        say "\$j = '$j', \$k = '$k'" if ($debug);
+        my $homo_region = "$refID:$j" . "-" . $k;
+        say "homoregion = '$homo_region'" if ($debug);
+        
+        my $homovcf = Vcf->new( file => $homoinfile, region => $homo_region);
+        $homovcf->parse_header();
+        say "\$homovcf isa '", ref($homovcf), "'" if ($debug);
+        
+        my $homo_data_array = 0;
         while (my $x=$homovcf->next_data_array()) {
-            my $info_column = $homovcf->get_column($x,'INFO');
-            my $DP4 = $homovcf->get_info_field($info_column,'DP4');
+            ++$homo_data_array;
+            say "homo data array count: '$homo_data_array'" if ($debug);
+            my $homo_info_column = $homovcf->get_column($x,'INFO');
+            my $homoDP4 = $homovcf->get_info_field($homo_info_column,'DP4');
             my $refID = $homovcf->get_column($x,'CHROM');
-            my $coord = $homovcf->get_column($x,'POS');
+            my $homo_coord = $homovcf->get_column($x,'POS');
             my $homo_alt = $homovcf->get_column($x,'ALT');
             #say "coord = '$coord'" if ($debug);
             #say "refID = '$refID'" if ($debug);
-            my @read_cnt = split /,/, $DP4;
+            my @homo_read_cnt = split /,/, $homoDP4;
 
-            my $homo_SNP_index = ($read_cnt[2] + $read_cnt[3])/($read_cnt[0] + $read_cnt[1] + $read_cnt[2] + $read_cnt[3]);
+            my $homo_SNP_index = ($homo_read_cnt[2] + $homo_read_cnt[3])/($homo_read_cnt[0] + $homo_read_cnt[1] + $homo_read_cnt[2] + $homo_read_cnt[3]);
+
+            say "homo SNP identified at coordinate $homo_coord" if ($debug);
 
             if ($maskedseqs) {
                 $seq = $db->get_Seq_by_id($refID);
-                my $nt = $seq->subseq($coord => $coord);
+                my $nt = $seq->subseq($homo_coord => $homo_coord);
                 if ($nt) {
                     say "nt from masked file: '$nt'" if ($debug);
                     if ($nt eq 'N') {
@@ -202,89 +220,110 @@ while (my $refseq = $refseqIO->next_seq()) {
             }
 
             if ($ignorefile) {
-                my $hashkey = $refID . ":" . $coord;
+                my $hashkey = $refID . ":" . $homo_coord;
                 say "checking if I should ignore '$hashkey'" if ($debug);
                 if (exists($ignoreDB{$hashkey})) {
-                    say "ignoring potential SNP at coordinate " . $coord . " because it is in '$ignorefile'" if ($debug);
+                    say "ignoring potential SNP at homo_coordinate " . $homo_coord . " because it is in '$ignorefile'" if ($debug);
                     next;
                 }
             }
 
             if ($gff) {
-                say "checking for features that overlap location " . $coord if ($debug);
+                say "checking for features that overlap location " . $homo_coord if ($debug);
                 my @tfeatures = $gffdb->get_features_by_location(
                     -seq_id     =>  $refID,
-                    -start      =>  $coord,
-                    -end        =>  $coord,
+                    -start      =>  $homo_coord,
+                    -end        =>  $homo_coord,
                 );
 
                 if (scalar(@tfeatures)) {
-                    say "overlapping features at location " . $coord . ": " . scalar(@tfeatures) if ($debug);
+                    say "overlapping features at location " . $homo_coord . ": " . scalar(@tfeatures) if ($debug);
                 } else {
-                    say "no overlapping features at location " . $coord if ($debug);
+                    say "no overlapping features at location " . $homo_coord if ($debug);
                     next;
                 }
 
             }
             
-            if ($debug) {
-                say "\nwindow cnt = $windowcnt";
-                say "i = $i";
-                printf "%i\t%s\t%3.2f\n", $coord, $DP4, $homo_SNP_index;
-            }
+#            if ($debug) {
+#                say "\nwindow cnt = $windowcnt";
+#                say "i = $i";
+#                printf "%i\t%s\t%3.2f\n", $coord, $DP4, $homo_SNP_index;
+#            }
 
-            my $hetvcf = Vcf->new( file => $hetinfile, region => "$refID:$coord" . "-" . $coord);
+            # only instantiate new Vcf object once above filters are passed
+            my $hetvcf = Vcf->new( file => $hetinfile, region => "$refID:$homo_coord" . "-" . $homo_coord);
+            $hetvcf->parse_header();
             if ($hetvcf) {
+                
+                my $het_data_array = 0;
                 while (my $y = $hetvcf->next_data_array()) {
-                    my $het_alt = $y->get_column($y,'ALT');
+                    ++$het_data_array;
+                    say "het data arrays: '$het_data_array'" if ($debug);
+                    my $het_alt = $hetvcf->get_column($y,'ALT');
                     if ($het_alt eq $homo_alt) {
+                        say "het SNP allele matches: '$homo_alt' == '$het_alt'" if ($debug);
                         my $het_info_column = $hetvcf->get_column($y,'INFO');
-                        my $hetDP4 = $hetvcf->get_info_field($info_column,'DP4');
-                        my $het_SNP_index = ($read_cnt[2] + $read_cnt[3])/($read_cnt[0] + $read_cnt[1] + $read_cnt[2] + $read_cnt[3]);
+                        my $hetDP4 = $hetvcf->get_info_field($het_info_column,'DP4');
+                        my @het_read_cnt = split /,/, $hetDP4;
+                        my $het_SNP_index = ($het_read_cnt[2] + $het_read_cnt[3])/($het_read_cnt[0] + $het_read_cnt[1] + $het_read_cnt[2] + $het_read_cnt[3]);
+                        say "modifying value of homo_SNP_index: $homo_SNP_index " . "-" . " $het_SNP_index = ", ($homo_SNP_index - $het_SNP_index) if ($debug);
                         $homo_SNP_index -= $het_SNP_index;
                         last;
+                    } else {
+                        say "het SNP allele does not match: '$homo_alt' == '$het_alt'" if ($debug);
                     }
                 }
             }
+            say "pushing onto SNPlocalblock [ $homo_coord $homoDP4 $homo_SNP_index $refID ]" if ($debug);
+            push(@SNPlocalblock, [$homo_coord, $homoDP4, $homo_SNP_index, $refID, $k]);
 
-            # build array of windows (array of arrays)
-            last if ($debug && $windowcnt > 1000);
-            if ($i >= $window) {
-                if (!$overlap) {
-                    say "pushing " . Dumper(@SNPlocalblock) . " onto SNPblock" if ($debug);
-                    push(@SNPblock,[@SNPlocalblock]);
-                    @SNPlocalblock = ();
-                    $i = 0;
-                    redo;
-                } else {
-                    # treat @SNPlocalblock as a filo 5 element buffer
-                    push(@SNPblock,[@SNPlocalblock]);
-                    say "before shift: \@SNPlocalblock: " . Dumper(@SNPlocalblock) if ($debug);
-                    shift(@SNPlocalblock);
-                    say "after shift: \@SNPlocalblock: " . Dumper(@SNPlocalblock) if ($debug);
-                    push(@SNPlocalblock,[$coord, $DP4, $homo_SNP_index, $refID]);
-                    say "after push: \@SNPlocalblock: " . Dumper(@SNPlocalblock) if ($debug);
-                }
-                ++$windowcnt;
-            } elsif ($i < $window) {
-                say "adding to SNPlocalblock" if ($debug);
-                push(@SNPlocalblock, [$coord, $DP4, $homo_SNP_index, $refID]);
-            }
+#            if (0) {
+#
+#                 build array of windows (array of arrays)
+#                last if ($debug && $windowcnt > 1000);
+#                if ($i >= $window) {
+#                    if (!$overlap) {
+#                        say "pushing " . dumper(@snplocalblock) . " onto snpblock" if ($debug);
+#                        push(@snpblock,[@snplocalblock]);
+#                        @snplocalblock = ();
+#                        $i = 0;
+#                        redo;
+#                    } else {
+##                         treat @snplocalblock as a filo 5 element buffer
+#                        push(@snpblock,[@snplocalblock]);
+#                        say "before shift: \@snplocalblock: " . dumper(@snplocalblock) if ($debug);
+#                        shift(@snplocalblock);
+#                        say "after shift: \@snplocalblock: " . dumper(@snplocalblock) if ($debug);
+#                        push(@snplocalblock,[$coord, $dp4, $homo_snp_index, $refid]);
+#                        say "after push: \@snplocalblock: " . dumper(@snplocalblock) if ($debug);
+#                    }
+#                    ++$windowcnt;
+#                } elsif ($i < $window) {
+#                    say "adding to snplocalblock" if ($debug);
+#                    push(@snplocalblock, [$coord, $dp4, $homo_snp_index, $refid]);
+#                }
+#
+#                ++$i;
+#            }
+        } # end of loop through homo Vcf objects.
 
-            ++$i;
-        }
+        say "pushing on to SNPblock: " . scalar(@SNPlocalblock) . " element array" if ($debug);
+        push(@SNPblock,[@SNPlocalblock]);
+        @SNPlocalblock = ();
+        print "\n\n\n" if ($debug);
     }
 }
 
 # if there is data left over ...
-if (@SNPlocalblock) {
-    push(@SNPblock,[@SNPlocalblock]);
-}
+#if (@SNPlocalblock) {
+#    push(@SNPblock,[@SNPlocalblock]);
+#}
 
 if ($debug) {
     say "Dump of \@SNPblock: ";
-    print Dumper(@SNPblock);
-    say "window count: $windowcnt";
+    print Dumper(sort {$a->[0] <=> $b->[0]} @SNPblock);
+    say "window count: $windowcnt\n\n";
 
 }
 
@@ -302,13 +341,21 @@ for my $windowdata (@SNPblock) {
     my $lastidx = @$windowdata - 1;
     #say "lastidx = $lastidx";
     for my $datapt (@$windowdata) {
-        $stat->add_data($datapt->[0]);
+        if ($usemaxcoord) {
+            $stat->add_data($datapt->[4]);
+        } else {
+            $stat->add_data($datapt->[0]);
+        }
         $refmol = $datapt->[3] unless ($refmol);
     }
     #$stat->add_data($windowdata->[0]->[0], $windowdata->[$lastidx]->[0]);
+    say "SNPs in window: " . $stat->count() if ($debug);
     if ($usemedian) {
         say "median coordinate: " . int($stat->median()) if ($debug);
         $x = int($stat->median());
+    } elsif ($usemaxcoord) {
+        say "max coordinate: " . int($stat->max()) if ($debug);
+        $x = int($stat->max());
     } else {
         say "mean coordinate: " . int($stat->mean()) if ($debug);
         $x = int($stat->mean());
@@ -351,9 +398,12 @@ sub help {
 
 say <<HELP;
 
-    "infile:s"      =>  name of input file
-    "outfile:s"     =>  name of output file
-    "window:i"      =>  window size; ie, the number of SNP's to include in the SNP index calculation
+    "homoinfile:s"  =>  VCF file of homozygous pool
+    "hetinfile:s"  =>  VCF file of het/WT pool
+    "refseq:s"      =>  fasta file of reference sequence(s) used for VCF files
+    "outfile:s" =>  \$outfile,
+    "window:i"  =>      size of sliding window (default = 4M nt)
+    "increment:i"   =>  increment amount (default = 10K nt)
     "max"           =>  instead of average in a window, use the maximum SNP index
     "maskedseq:s"   =>  name of FASTA file containing masked sequences to ignore
     "ignore:s"      =>  name of tab-delimited file containing coordinates to ignore in first column and reference sequence ID in column 3
@@ -361,6 +411,7 @@ say <<HELP;
     "tab"           =>  \$tabstdout,
     "overlap"       =>  overlap windows - default behavior does not overlap windows
     "median"        =>  use the median as the window genome coordinate instead of the mean
+    "maxcoord"      =>  for plotting, use last coordinate of genome window 
     "onlyones"      =>  only output sites with SNPindex = 1
     "debug"         =>  \$debug,
     "verbose"       =>  \$verbose,
