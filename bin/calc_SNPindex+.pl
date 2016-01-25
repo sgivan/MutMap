@@ -41,7 +41,7 @@ use lib '/share/apps/perl5/vcftools/lib/site_perl/5.14.2';
 use Vcf;
 $Data::Dumper::Deepcopy = 1;
 
-my ($debug,$verbose,$help,$homoinfile,$hetinfile,$refseqfile,$outfile,$window,$blockcnt,$tabstdout,$usemax,$maskedseqs,$gff,$overlap,$usemedian,$ignorefile,$onlyones);
+my ($debug,$verbose,$help,$homoinfile,$hetinfile,$refseqfile,$outfile,$window,$increment,$blockcnt,$tabstdout,$usemax,$maskedseqs,$gff,$overlap,$usemedian,$ignorefile,$onlyones);
 
 my $result = GetOptions(
     "homoinfile:s"  =>  \$homoinfile,
@@ -49,6 +49,7 @@ my $result = GetOptions(
     "refseq:s"      =>  \$refseqfile,
     "outfile:s" =>  \$outfile,
     "window:i"  =>  \$window,
+    "increment:i"   =>  \$increment,
     "max"       =>  \$usemax,
     "maskedseqs:s"   =>  \$maskedseqs,
     "ignore:s"      => \$ignorefile,
@@ -67,51 +68,52 @@ if ($help) {
     exit(0);
 }
 
-$window = 5 unless ($window);
+$window = 4000000 unless ($window);
+$increment = 10000 unless ($increment);
 
-my $homovcf = Vcf->new(file=>$homoinfile);
-$homovcf->parse_header();
+#my $homovcf = Vcf->new(file=>$homoinfile);
+#$homovcf->parse_header();
+#
+#my %homoDB = ();
+#say "reading homo vcf file" if ($debug);
+#while (my $x=$homovcf->next_data_array()) {
+#    my $info_column = $homovcf->get_column($x,'INFO');
+#    my $DP4 = $homovcf->get_info_field($info_column,'DP4');
+#    my $refID = $homovcf->get_column($x,'CHROM');
+#    my $coord = $homovcf->get_column($x,'POS');
+#    my $nt = $homovcf->get_column($x,'ALT');
+#    my $hashkey = $refID . ":" . $coord . ":" . $nt;
+#    my @read_cnt = split /,/, $DP4;
+#   
+#    my $SNP_index = ($read_cnt[2] + $read_cnt[3])/($read_cnt[0] + $read_cnt[1] + $read_cnt[2] + $read_cnt[3]);
+#
+#    $homoDB{$hashkey} = $SNP_index;
+#}
+#
+#say "\%homoDB created with ", keys(%homoDB), " keys" if ($debug);
+#
+#my $hetvcf = Vcf->new(file => $hetinfile);
+#$hetvcf->parse_header();
+#
+#my %hetDB = ();
+#say "reading het vcf file" if ($debug);
+#while (my $y = $hetvcf->next_data_array()) {
+#    my $refID = $hetvcf->get_column($y,'CHROM');
+#    my $coord = $hetvcf->get_column($y,'POS');
+#    my $nt = $hetvcf->get_column($y,'ALT');
+#    my $hashkey = $refID . ":" . $coord . ":" . $nt;
+#
+#    my $info_column = $hetvcf->get_column($y,'INFO');
+#    my $DP4 = $hetvcf->get_info_field($info_column,'DP4');
+#    my @read_cnt = split /,/, $DP4;
+#    my $SNP_index = ($read_cnt[2] + $read_cnt[3])/($read_cnt[0] + $read_cnt[1] + $read_cnt[2] + $read_cnt[3]);
+#
+#    $hetDB{$hashkey} = $SNP_index;
+#
+#}
+#say "\%hetDB created with ", keys(%hetDB), " keys" if ($debug);
 
-my %homoDB = ();
-say "reading homo vcf file" if ($debug);
-while (my $x=$homovcf->next_data_array()) {
-    my $info_column = $homovcf->get_column($x,'INFO');
-    my $DP4 = $homovcf->get_info_field($info_column,'DP4');
-    my $refID = $homovcf->get_column($x,'CHROM');
-    my $coord = $homovcf->get_column($x,'POS');
-    my $nt = $homovcf->get_column($x,'ALT');
-    my $hashkey = $refID . ":" . $coord . ":" . $nt;
-    my @read_cnt = split /,/, $DP4;
-   
-    my $SNP_index = ($read_cnt[2] + $read_cnt[3])/($read_cnt[0] + $read_cnt[1] + $read_cnt[2] + $read_cnt[3]);
-
-    $homoDB{$hashkey} = $SNP_index;
-}
-
-say "\%homoDB created with ", keys(%homoDB), " keys" if ($debug);
-
-my $hetvcf = Vcf->new(file => $hetinfile);
-$hetvcf->parse_header();
-
-my %hetDB = ();
-say "reading het vcf file" if ($debug);
-while (my $y = $hetvcf->next_data_array()) {
-    my $refID = $hetvcf->get_column($y,'CHROM');
-    my $coord = $hetvcf->get_column($y,'POS');
-    my $nt = $hetvcf->get_column($y,'ALT');
-    my $hashkey = $refID . ":" . $coord . ":" . $nt;
-
-    my $info_column = $hetvcf->get_column($y,'INFO');
-    my $DP4 = $hetvcf->get_info_field($info_column,'DP4');
-    my @read_cnt = split /,/, $DP4;
-    my $SNP_index = ($read_cnt[2] + $read_cnt[3])/($read_cnt[0] + $read_cnt[1] + $read_cnt[2] + $read_cnt[3]);
-
-    $hetDB{$hashkey} = $SNP_index;
-
-}
-say "\%hetDB created with ", keys(%hetDB), " keys" if ($debug);
-
-my $refseq = Bio::SeqIO->new(
+my $refseqIO = Bio::SeqIO->new(
     -file   =>  $refseqfile,
     -format =>  'fasta',
 );
@@ -165,84 +167,113 @@ if ($gff) {
 my ($cnt,$i,$windowcnt) = (0,0,1);
 my (@SNPblock,@SNPlocalblock) = ();
 my $seq;
-while (my $x=$homovcf->next_data_array()) {
-    my $info_column = $homovcf->get_column($x,'INFO');
-    my $DP4 = $homovcf->get_info_field($info_column,'DP4');
-    my $refID = $homovcf->get_column($x,'CHROM');
-    my $coord = $homovcf->get_column($x,'POS');
-    #say "coord = '$coord'" if ($debug);
-    #say "refID = '$refID'" if ($debug);
-    my @read_cnt = split /,/, $DP4;
-   
-    my $SNP_index = ($read_cnt[2] + $read_cnt[3])/($read_cnt[0] + $read_cnt[1] + $read_cnt[2] + $read_cnt[3]);
+while (my $refseq = $refseqIO->next_seq()) {
+    my $refseqlength = $refseq->length();
+    my $start = 1;
+    my $refID = $seq->name();
+    # $window is defined above
+    # $increment is defined above
+    for (my ($j,$k) = ($start,$start + $window - 1); $j <= $refseqlength; $j += $increment, $k += $increment) {
+        say "\$i = '$i', \$k = '$k'" if ($debug);
+        my $homovcf = Vcf->new( file => $homoinfile, region => "$refID:$j" . "-" . $k);
+        #my $hetvcf = Vcf->new( file =>  $hetinfile, region  => "$refID:$j" . "-" . $k);
+        while (my $x=$homovcf->next_data_array()) {
+            my $info_column = $homovcf->get_column($x,'INFO');
+            my $DP4 = $homovcf->get_info_field($info_column,'DP4');
+            my $refID = $homovcf->get_column($x,'CHROM');
+            my $coord = $homovcf->get_column($x,'POS');
+            my $homo_alt = $homovcf->get_column($x,'ALT');
+            #say "coord = '$coord'" if ($debug);
+            #say "refID = '$refID'" if ($debug);
+            my @read_cnt = split /,/, $DP4;
 
-    if ($maskedseqs) {
-        $seq = $db->get_Seq_by_id($refID);
-        my $nt = $seq->subseq($coord => $coord);
-        say "nt from masked file: '$nt'" if ($debug);
-        if ($nt eq 'N') {
-            say "skipping" if ($debug);
-            next;
+            my $homo_SNP_index = ($read_cnt[2] + $read_cnt[3])/($read_cnt[0] + $read_cnt[1] + $read_cnt[2] + $read_cnt[3]);
+
+            if ($maskedseqs) {
+                $seq = $db->get_Seq_by_id($refID);
+                my $nt = $seq->subseq($coord => $coord);
+                if ($nt) {
+                    say "nt from masked file: '$nt'" if ($debug);
+                    if ($nt eq 'N') {
+                        say "skipping" if ($debug);
+                        next;
+                    }
+                }
+            }
+
+            if ($ignorefile) {
+                my $hashkey = $refID . ":" . $coord;
+                say "checking if I should ignore '$hashkey'" if ($debug);
+                if (exists($ignoreDB{$hashkey})) {
+                    say "ignoring potential SNP at coordinate " . $coord . " because it is in '$ignorefile'" if ($debug);
+                    next;
+                }
+            }
+
+            if ($gff) {
+                say "checking for features that overlap location " . $coord if ($debug);
+                my @tfeatures = $gffdb->get_features_by_location(
+                    -seq_id     =>  $refID,
+                    -start      =>  $coord,
+                    -end        =>  $coord,
+                );
+
+                if (scalar(@tfeatures)) {
+                    say "overlapping features at location " . $coord . ": " . scalar(@tfeatures) if ($debug);
+                } else {
+                    say "no overlapping features at location " . $coord if ($debug);
+                    next;
+                }
+
+            }
+            
+            if ($debug) {
+                say "\nwindow cnt = $windowcnt";
+                say "i = $i";
+                printf "%i\t%s\t%3.2f\n", $coord, $DP4, $homo_SNP_index;
+            }
+
+            my $hetvcf = Vcf->new( file => $hetinfile, region => "$refID:$coord" . "-" . $coord);
+            if ($hetvcf) {
+                while (my $y = $hetvcf->next_data_array()) {
+                    my $het_alt = $y->get_column($y,'ALT');
+                    if ($het_alt eq $homo_alt) {
+                        my $het_info_column = $hetvcf->get_column($y,'INFO');
+                        my $hetDP4 = $hetvcf->get_info_field($info_column,'DP4');
+                        my $het_SNP_index = ($read_cnt[2] + $read_cnt[3])/($read_cnt[0] + $read_cnt[1] + $read_cnt[2] + $read_cnt[3]);
+                        $homo_SNP_index -= $het_SNP_index;
+                        last;
+                    }
+                }
+            }
+
+            # build array of windows (array of arrays)
+            last if ($debug && $windowcnt > 1000);
+            if ($i >= $window) {
+                if (!$overlap) {
+                    say "pushing " . Dumper(@SNPlocalblock) . " onto SNPblock" if ($debug);
+                    push(@SNPblock,[@SNPlocalblock]);
+                    @SNPlocalblock = ();
+                    $i = 0;
+                    redo;
+                } else {
+                    # treat @SNPlocalblock as a filo 5 element buffer
+                    push(@SNPblock,[@SNPlocalblock]);
+                    say "before shift: \@SNPlocalblock: " . Dumper(@SNPlocalblock) if ($debug);
+                    shift(@SNPlocalblock);
+                    say "after shift: \@SNPlocalblock: " . Dumper(@SNPlocalblock) if ($debug);
+                    push(@SNPlocalblock,[$coord, $DP4, $homo_SNP_index, $refID]);
+                    say "after push: \@SNPlocalblock: " . Dumper(@SNPlocalblock) if ($debug);
+                }
+                ++$windowcnt;
+            } elsif ($i < $window) {
+                say "adding to SNPlocalblock" if ($debug);
+                push(@SNPlocalblock, [$coord, $DP4, $homo_SNP_index, $refID]);
+            }
+
+            ++$i;
         }
     }
-
-    if ($ignorefile) {
-        my $hashkey = $refID . ":" . $coord;
-        say "checking if I should ignore '$hashkey'" if ($debug);
-        if (exists($ignoreDB{$hashkey})) {
-            say "ignoring potential SNP at coordinate " . $coord . " because it is in '$ignorefile'" if ($debug);
-            next;
-        }
-    }
-
-    if ($gff) {
-        say "checking for features that overlap location " . $coord if ($debug);
-        my @tfeatures = $gffdb->get_features_by_location(
-            -seq_id     =>  $refID,
-            -start      =>  $coord,
-            -end        =>  $coord,
-        );
-
-        if (scalar(@tfeatures)) {
-            say "overlapping features at location " . $coord . ": " . scalar(@tfeatures) if ($debug);
-        } else {
-            say "no overlapping features at location " . $coord if ($debug);
-            next;
-        }
-
-    }
-    
-    if ($debug) {
-        say "\nwindow cnt = $windowcnt";
-        say "i = $i";
-        printf "%i\t%s\t%3.2f\n", $coord, $DP4, $SNP_index;
-    }
-
-    # build array of windows (array of arrays)
-    last if ($debug && $windowcnt > 1000);
-    if ($i >= $window) {
-        if (!$overlap) {
-            say "pushing " . Dumper(@SNPlocalblock) . " onto SNPblock" if ($debug);
-            push(@SNPblock,[@SNPlocalblock]);
-            @SNPlocalblock = ();
-            $i = 0;
-            redo;
-        } else {
-            # treat @SNPlocalblock as a filo 5 element buffer
-            push(@SNPblock,[@SNPlocalblock]);
-            say "before shift: \@SNPlocalblock: " . Dumper(@SNPlocalblock) if ($debug);
-            shift(@SNPlocalblock);
-            say "after shift: \@SNPlocalblock: " . Dumper(@SNPlocalblock) if ($debug);
-            push(@SNPlocalblock,[$coord, $DP4, $SNP_index, $refID]);
-            say "after push: \@SNPlocalblock: " . Dumper(@SNPlocalblock) if ($debug);
-        }
-        ++$windowcnt;
-    } elsif ($i < $window) {
-        say "adding to SNPlocalblock" if ($debug);
-        push(@SNPlocalblock, [$coord, $DP4, $SNP_index, $refID]);
-    }
-
-    ++$i;
 }
 
 # if there is data left over ...
