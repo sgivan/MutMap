@@ -72,6 +72,7 @@ if ($help) {
 
 $window = 4000000 unless ($window);
 $increment = 10000 unless ($increment);
+$outfile = $homoinfile . ".SNPindex" unless ($outfile);
 
 #my $homovcf = Vcf->new(file=>$homoinfile);
 #$homovcf->parse_header();
@@ -157,8 +158,6 @@ if ($gff) {
     # Bio::DB::SeqFeature::Store
     say "loading GFF file '$gff'" if ($debug);
     $gffdb = Bio::DB::SeqFeature::Store->new( -adaptor => 'memory', -dsn => $gff);
-#    my $loader = Bio::DB::SeqFeature::Store::GFFLoader->new( -store => $gffdb );
-#    $loader->load($gff);
 
     if ($debug) {
         say "loaded GFF file";
@@ -179,7 +178,7 @@ while (my $refseq = $refseqIO->next_seq()) {
     my $window_SNP_index = 0;
     for (my ($j,$k) = ($start,$start + $window - 1); $j <= $refseqlength; $j += $increment, $k += $increment) {
         print "\n" if ($debug);
-        last if (++$cnt >= 100 && $debug);
+        #last if (++$cnt >= 100 && $debug);
         say "cnt = $cnt" if ($debug);
         
         say "\$j = '$j', \$k = '$k'" if ($debug);
@@ -245,12 +244,6 @@ while (my $refseq = $refseqIO->next_seq()) {
 
             }
             
-#            if ($debug) {
-#                say "\nwindow cnt = $windowcnt";
-#                say "i = $i";
-#                printf "%i\t%s\t%3.2f\n", $coord, $DP4, $homo_SNP_index;
-#            }
-
             # only instantiate new Vcf object once above filters are passed
             my $hetvcf = Vcf->new( file => $hetinfile, region => "$refID:$homo_coord" . "-" . $homo_coord);
             $hetvcf->parse_header();
@@ -275,7 +268,7 @@ while (my $refseq = $refseqIO->next_seq()) {
                     }
                 }
             }
-            say "pushing onto SNPlocalblock [ $homo_coord $homoDP4 $homo_SNP_index $refID ]" if ($debug);
+            say "pushing onto SNPlocalblock [ $homo_coord $homoDP4 $homo_SNP_index $refID $k ]" if ($debug);
             push(@SNPlocalblock, [$homo_coord, $homoDP4, $homo_SNP_index, $refID, $k]);
 
 #            if (0) {
@@ -360,6 +353,12 @@ for my $windowdata (@SNPblock) {
         say "mean coordinate: " . int($stat->mean()) if ($debug);
         $x = int($stat->mean());
     }
+
+    if (!$x) {
+        ++$|;
+        say "cannot calculate genome coordinate";
+        exit();
+    }
     $stat->clear();
 
     for my $datapt (@$windowdata) {
@@ -374,6 +373,11 @@ for my $windowdata (@SNPblock) {
         $y = $stat->mean();
     }
 
+    if (!$y) {
+        ++$|;
+        say "cannot calculate SNPindex for genome coordinate $x";
+        exit();
+    }
 
     $stat->clear();
     push(@plotdata, [$x, $y, $refmol]);
@@ -385,12 +389,14 @@ if ($debug) {
 }
 
 if ($tabstdout) {
+    open(TAB,">",$outfile);
     for my $xy (@plotdata) {
         if ($onlyones) {
             next if ($xy->[1] < 1);
         }
-        say $xy->[0] . "\t" . $xy->[1] . "\t" . $xy->[2]
+        say TAB $xy->[0] . "\t" . $xy->[1] . "\t" . $xy->[2]
     }
+    close(TAB);
 }
 
 
