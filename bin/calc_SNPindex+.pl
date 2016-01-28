@@ -42,15 +42,18 @@ use Vcf;
 $Data::Dumper::Deepcopy = 1;
 
 my
-($debug,$verbose,$help,$homoinfile,$hetinfile,$refseqfile,$outfile,$window,$increment,$blockcnt,$tabstdout,$usemax,$maskedseqs,$gff,$overlap,$usemedian,$ignorefile,$onlyones,$usemaxcoord);
+($debug,$verbose,$help,$homoinfile,$hetinfile,$refseqname,$refseqfile,$outfile,$window,$increment,$blockcnt,$tabstdout,$usemax,$maskedseqs,$gff,$overlap,$usemedian,$ignorefile,$onlyones,$usemaxcoord,$usemincoord,$startcoord,$stopcoord);
 
 my $result = GetOptions(
     "homoinfile:s"  =>  \$homoinfile,
     "hetinfile:s"  =>  \$hetinfile,
-    "refseq:s"      =>  \$refseqfile,
+    "refseqfile:s"      =>  \$refseqfile,
+    "refseqname:s"      =>  \$refseqname,
     "outfile:s" =>  \$outfile,
     "window:i"  =>  \$window,
     "increment:i"   =>  \$increment,
+    "start:i"       =>  \$startcoord,
+    "stop:i"        =>  \$stopcoord,
     "max"       =>  \$usemax,
     "maskedseqs:s"   =>  \$maskedseqs,
     "ignore:s"      => \$ignorefile,
@@ -59,6 +62,7 @@ my $result = GetOptions(
     "overlap"       =>  \$overlap,
     "median"        =>  \$usemedian,
     "maxcoord"      =>  \$usemaxcoord,
+    "mincoord"      =>  \$usemincoord,
     "onlyones"      =>  \$onlyones,
     "debug"     =>  \$debug,
     "verbose"   =>  \$verbose,
@@ -75,7 +79,7 @@ $increment = 10000 unless ($increment);
 $outfile = $homoinfile . ".SNPindex" unless ($outfile);
 
 #my $homovcf = Vcf->new(file=>$homoinfile);
-#$homovcf->parse_header();
+#$homovcf->paree_header();
 #
 #my %homoDB = ();
 #say "reading homo vcf file" if ($debug);
@@ -170,13 +174,17 @@ my (@SNPblock,@SNPlocalblock) = ();
 my $seq;
 while (my $refseq = $refseqIO->next_seq()) {
     my $refseqlength = $refseq->length();
-    my $start = 1;
+    my $start = $startcoord || 1;
+    my $stop = $stopcoord || $refseqlength;
     my $refID = $refseq->id();
+    if ($refseqname) {
+        next unless ($refID eq $refseqname);
+    }
     say "refseq: '$refID'. length: '$refseqlength'" if ($debug);
     # $window is defined above
     # $increment is defined above
     my $window_SNP_index = 0;
-    for (my ($j,$k) = ($start,$start + $window - 1); $j <= $refseqlength; $j += $increment, $k += $increment) {
+    for (my ($j,$k) = ($start,$start + $window - 1); $j <= ($stop - $increment); $j += $increment, $k += $increment) {
         print "\n" if ($debug);
         #last if (++$cnt >= 100 && $debug);
         say "cnt = $cnt" if ($debug);
@@ -268,37 +276,9 @@ while (my $refseq = $refseqIO->next_seq()) {
                     }
                 }
             }
-            say "pushing onto SNPlocalblock [ $homo_coord $homoDP4 $homo_SNP_index $refID $k ]" if ($debug);
-            push(@SNPlocalblock, [$homo_coord, $homoDP4, $homo_SNP_index, $refID, $k]);
+            say "pushing onto SNPlocalblock [ $homo_coord $homoDP4 $homo_SNP_index $refID $j $k ]" if ($debug);
+            push(@SNPlocalblock, [$homo_coord, $homoDP4, $homo_SNP_index, $refID, $j, $k]);
 
-#            if (0) {
-#
-#                 build array of windows (array of arrays)
-#                last if ($debug && $windowcnt > 1000);
-#                if ($i >= $window) {
-#                    if (!$overlap) {
-#                        say "pushing " . dumper(@snplocalblock) . " onto snpblock" if ($debug);
-#                        push(@snpblock,[@snplocalblock]);
-#                        @snplocalblock = ();
-#                        $i = 0;
-#                        redo;
-#                    } else {
-##                         treat @snplocalblock as a filo 5 element buffer
-#                        push(@snpblock,[@snplocalblock]);
-#                        say "before shift: \@snplocalblock: " . dumper(@snplocalblock) if ($debug);
-#                        shift(@snplocalblock);
-#                        say "after shift: \@snplocalblock: " . dumper(@snplocalblock) if ($debug);
-#                        push(@snplocalblock,[$coord, $dp4, $homo_snp_index, $refid]);
-#                        say "after push: \@snplocalblock: " . dumper(@snplocalblock) if ($debug);
-#                    }
-#                    ++$windowcnt;
-#                } elsif ($i < $window) {
-#                    say "adding to snplocalblock" if ($debug);
-#                    push(@snplocalblock, [$coord, $dp4, $homo_snp_index, $refid]);
-#                }
-#
-#                ++$i;
-#            }
         } # end of loop through homo Vcf objects.
 
         say "pushing on to SNPblock: " . scalar(@SNPlocalblock) . " element array" if ($debug);
@@ -315,7 +295,7 @@ while (my $refseq = $refseqIO->next_seq()) {
 
 if ($debug) {
     say "Dump of \@SNPblock: ";
-    print Dumper(sort {$a->[0] <=> $b->[0]} @SNPblock);
+    print Dumper(sort {$a->[0]->[0] <=> $b->[0]->[0]} @SNPblock);
     say "window count: $windowcnt\n\n";
 
 }
@@ -329,34 +309,49 @@ if ($debug) {
 my $stat = Statistics::Descriptive::Full->new();
 my @plotdata = ();
 for my $windowdata (@SNPblock) {
-
-    my ($x,$y,$refmol) = ();
+    $stat->clear();
+    my ($x,$y,$refmol,$windowstart,$windowstop) = ();
+    my (@SNPcoords,@SNPindices) = ();
     my $lastidx = @$windowdata - 1;
     #say "lastidx = $lastidx";
+    say "\nadding data point:" if ($debug);
     for my $datapt (@$windowdata) {
+        if ($debug) {
+            print Dumper $datapt;
+        }
         if ($usemaxcoord) {
+            $stat->add_data($datapt->[5]);
+        } elsif ($usemincoord) {
             $stat->add_data($datapt->[4]);
         } else {
             $stat->add_data($datapt->[0]);
         }
         $refmol = $datapt->[3] unless ($refmol);
+        $windowstart = $datapt->[4];
+        $windowstop = $datapt->[5];
+        push(@SNPcoords, $datapt->[0]);
+        push(@SNPindices, $datapt->[2]);
     }
     #$stat->add_data($windowdata->[0]->[0], $windowdata->[$lastidx]->[0]);
     say "SNPs in window: " . $stat->count() if ($debug);
+    next if (!$stat->count());
     if ($usemedian) {
         say "median coordinate: " . int($stat->median()) if ($debug);
         $x = int($stat->median());
     } elsif ($usemaxcoord) {
         say "max coordinate: " . int($stat->max()) if ($debug);
         $x = int($stat->max());
+    } elsif ($usemincoord) {
+        say "min coordinate: " . int($stat->min()) if ($debug);
+        $x = int($stat->min());
     } else {
         say "mean coordinate: " . int($stat->mean()) if ($debug);
         $x = int($stat->mean());
     }
 
-    if (!$x) {
+    if (!defined($x)) {
         ++$|;
-        say "cannot calculate genome coordinate";
+        say "cannot calculate genome coordinate for plotting";
         exit();
     }
     $stat->clear();
@@ -373,14 +368,17 @@ for my $windowdata (@SNPblock) {
         $y = $stat->mean();
     }
 
-    if (!$y) {
+    if (!defined($y)) {
         ++$|;
         say "cannot calculate SNPindex for genome coordinate $x";
         exit();
     }
 
+    #$stat->clear();
+    my $SNPindices = join ",", @SNPindices;
+    my $SNPcoords = join ",", @SNPcoords;
+    push(@plotdata, [$x, $y, $refmol, $windowstart, $windowstop, $stat->count(), $SNPcoords, $SNPindices]);
     $stat->clear();
-    push(@plotdata, [$x, $y, $refmol]);
 }
 
 if ($debug) {
@@ -390,11 +388,14 @@ if ($debug) {
 
 if ($tabstdout) {
     open(TAB,">",$outfile);
+    no strict "vars";
+    #for my $xy (sort {$a[0] <=> $b[0]} @plotdata) {
     for my $xy (@plotdata) {
         if ($onlyones) {
             next if ($xy->[1] < 1);
         }
-        say TAB $xy->[0] . "\t" . $xy->[1] . "\t" . $xy->[2]
+        #say TAB $xy->[0] . "\t" . $xy->[1] . "\t" . $xy->[2] . "\t" . $xy->[3] . "\t" . $xy->[4]
+        say TAB join "\t", @$xy;
     }
     close(TAB);
 }
@@ -407,9 +408,12 @@ say <<HELP;
     "homoinfile:s"  =>  VCF file of homozygous pool
     "hetinfile:s"  =>  VCF file of het/WT pool
     "refseq:s"      =>  fasta file of reference sequence(s) used for VCF files
+    "refseqname:s"  
     "outfile:s" =>  \$outfile,
     "window:i"  =>      size of sliding window (default = 4M nt)
     "increment:i"   =>  increment amount (default = 10K nt)
+    "start:i"
+    "stop:i"
     "max"           =>  instead of average in a window, use the maximum SNP index
     "maskedseq:s"   =>  name of FASTA file containing masked sequences to ignore
     "ignore:s"      =>  name of tab-delimited file containing coordinates to ignore in first column and reference sequence ID in column 3
@@ -418,6 +422,7 @@ say <<HELP;
     "overlap"       =>  overlap windows - default behavior does not overlap windows
     "median"        =>  use the median as the window genome coordinate instead of the mean
     "maxcoord"      =>  for plotting, use last coordinate of genome window 
+    "mincoord"
     "onlyones"      =>  only output sites with SNPindex = 1
     "debug"         =>  \$debug,
     "verbose"       =>  \$verbose,
