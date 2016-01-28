@@ -25,7 +25,7 @@ use Getopt::Long; # use GetOptions function to for CL args
 use warnings;
 use strict;
 
-my ($debug,$verbose,$help,$infile,$regionsize,$refseqname);
+my ($debug,$verbose,$help,$infile,$regionsize,$refseqname,$testbcf,$stopcoord,$notabix);
 
 my $result = GetOptions(
     "debug"     =>  \$debug,
@@ -33,6 +33,9 @@ my $result = GetOptions(
     "infile:s"      =>  \$infile,
     "regionsize:i"  =>  \$regionsize,
     "refseqname:s"  =>  \$refseqname,
+    "testbcf"       =>  \$testbcf,
+    "stopcoord:i"   =>  \$stopcoord,
+    "notabix"       =>  \$notabix,
     "help"      =>  \$help,
 );
 
@@ -46,6 +49,7 @@ my $tabix = 'tabix';
 $regionsize = 1000000 unless ($regionsize);
 $infile = 'infile' unless ($infile);
 $refseqname = 'refseq' unless ($refseqname);
+$stopcoord = 10000000 unless ($stopcoord);
 
 my $outfile = $infile;
 $outfile =~ s/\.gz//;
@@ -63,18 +67,27 @@ for (my ($j,$k,$i) = (1,$regionsize,0); $i != -1; $j += $regionsize, $k += $regi
     open(BCF,"|-","$bcftools view -O b -o $regionoutfile $infile $refseqname:$j-$k");
     close(BCF);
 
-    open(FTEST,"-|","bcftools view -O v $regionoutfile | tail -n 1");
-    chomp(my $ftest = <FTEST>);
-    close(FTEST);
-    say "\$ftest = '$ftest'" if ($debug);
-    $i = -1 if (substr($ftest,0,1) eq '#');# exit loop when you reach the end of the reference sequence
-    unlink($regionoutfile) if ($i == -1);
+    if ($testbcf) {
+        open(FTEST,"-|","bcftools view -O v $regionoutfile | tail -n 1");
+        chomp(my $ftest = <FTEST>);
+        close(FTEST);
+        say "\$ftest = '$ftest'" if ($debug);
+        $i = -1 if (substr($ftest,0,1) eq '#');# exit loop when you reach the end of the reference sequence
+        unlink($regionoutfile) if ($i == -1);
+    }
     say "outfile $cnt: '$regionoutfile'" if (($debug || $verbose) && $i != -1);
 
-    unless ($i == -1) {
+    unless ($i == -1 || $notabix) {
         open(TABIX,"|-","tabix $regionoutfile");
         close(TABIX);
     }
+
+    if ($stopcoord) {
+        if ($j + $regionsize > $stopcoord) {
+            $i = -1;
+        }
+    }
+
 
     $i = -1 if ((++$cnt >= 10) && $debug);
     say "\$i = '$i'" if ($debug);
@@ -89,7 +102,13 @@ say <<HELP;
     "infile:s"      =>  \$infile,
     "regionsize:i"  =>  \$regionsize,
     "refseqname:s"  
+    "testbcf"       =>  \$testbcf,
+    "stopcoord:i"   =>  \$stopcoord,
     "help"      =>  \$help,
+
+    if you use --testbcf, you don't need to use --stopcoord. But, you may
+        get premature exits.
+    Otherwise, use --stopcoord.
 
 HELP
 
