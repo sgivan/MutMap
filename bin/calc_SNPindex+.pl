@@ -255,6 +255,7 @@ while (my $refseq = $refseqIO->next_seq()) {
             # only instantiate new Vcf object once above filters are passed
             my $hetvcf = Vcf->new( file => $hetinfile, region => "$refID:$homo_coord" . "-" . $homo_coord);
             $hetvcf->parse_header();
+
             if ($hetvcf) {
                 
                 my $het_data_array = 0;
