@@ -34,39 +34,37 @@ use Data::Dumper;
 use Statistics::Descriptive;
 use Bio::SeqIO;
 use Bio::DB::Fasta;
-#use Bio::DB::GFF;
 use Bio::DB::SeqFeature::Store;
-use Bio::DB::SeqFeature::Store::GFF3Loader;
+#use Bio::DB::SeqFeature::Store::GFF3Loader;
 use lib '/share/apps/perl5/vcftools/lib/site_perl/5.14.2';
 use Vcf;
 $Data::Dumper::Deepcopy = 1;
 
 my
-($debug,$verbose,$help,$homoinfile,$hetinfile,$refseqname,$refseqfile,$outfile,$window,$increment,$blockcnt,$tabstdout,$usemax,$maskedseqs,$gff,$overlap,$usemedian,$ignorefile,$onlyones,$usemaxcoord,$usemincoord,$startcoord,$stopcoord);
+($debug,$verbose,$help,$homoinfile,$hetinfile,$refseqname,$refseqfile,$outfile,$window,$increment,$blockcnt,$tabstdout,$usemax,$maskedseqs,$gff,$usemedian,$ignorefile,$onlyones,$usemaxcoord,$usemincoord,$startcoord,$stopcoord);
 
 my $result = GetOptions(
-    "homoinfile:s"  =>  \$homoinfile,
-    "hetinfile:s"  =>  \$hetinfile,
+    "homoinfile:s"      =>  \$homoinfile,
+    "hetinfile:s"       =>  \$hetinfile,
     "refseqfile:s"      =>  \$refseqfile,
     "refseqname:s"      =>  \$refseqname,
-    "outfile:s" =>  \$outfile,
-    "window:i"  =>  \$window,
-    "increment:i"   =>  \$increment,
-    "start:i"       =>  \$startcoord,
-    "stop:i"        =>  \$stopcoord,
-    "max"       =>  \$usemax,
-    "maskedseqs:s"   =>  \$maskedseqs,
-    "ignore:s"      => \$ignorefile,
-    "gff:s"         =>  \$gff,
-    "tab"       =>  \$tabstdout,
-    "overlap"       =>  \$overlap,
-    "median"        =>  \$usemedian,
-    "maxcoord"      =>  \$usemaxcoord,
-    "mincoord"      =>  \$usemincoord,
-    "onlyones"      =>  \$onlyones,
-    "debug"     =>  \$debug,
-    "verbose"   =>  \$verbose,
-    "help"      =>  \$help,
+    "outfile:s"         =>  \$outfile,
+    "window:i"          =>  \$window,
+    "increment:i"       =>  \$increment,
+    "start:i"           =>  \$startcoord,
+    "stop:i"            =>  \$stopcoord,
+    "max"               =>  \$usemax,
+    "maskedseqs:s"      =>  \$maskedseqs,
+    "ignore:s"          =>  \$ignorefile,
+    "gff:s"             =>  \$gff,
+    "tab"               =>  \$tabstdout,
+    "median"            =>  \$usemedian,
+    "maxcoord"          =>  \$usemaxcoord,
+    "mincoord"          =>  \$usemincoord,
+    "onlyones"          =>  \$onlyones,
+    "debug"             =>  \$debug,
+    "verbose"           =>  \$verbose,
+    "help"              =>  \$help,
 );
 
 if ($help) {
@@ -74,61 +72,26 @@ if ($help) {
     exit(0);
 }
 
+# initialize some variables with default values
+$homoinfile = 'homoinfile' unless ($homoinfile);
+$hetinfile = 'hetinfile' unless ($hetinfile);
 $window = 4000000 unless ($window);
 $increment = 10000 unless ($increment);
 $outfile = $homoinfile . ".SNPindex" unless ($outfile);
 
-#my $homovcf = Vcf->new(file=>$homoinfile);
-#$homovcf->paree_header();
-#
-#my %homoDB = ();
-#say "reading homo vcf file" if ($debug);
-#while (my $x=$homovcf->next_data_array()) {
-#    my $info_column = $homovcf->get_column($x,'INFO');
-#    my $DP4 = $homovcf->get_info_field($info_column,'DP4');
-#    my $refID = $homovcf->get_column($x,'CHROM');
-#    my $coord = $homovcf->get_column($x,'POS');
-#    my $nt = $homovcf->get_column($x,'ALT');
-#    my $hashkey = $refID . ":" . $coord . ":" . $nt;
-#    my @read_cnt = split /,/, $DP4;
-#   
-#    my $SNP_index = ($read_cnt[2] + $read_cnt[3])/($read_cnt[0] + $read_cnt[1] + $read_cnt[2] + $read_cnt[3]);
-#
-#    $homoDB{$hashkey} = $SNP_index;
-#}
-#
-#say "\%homoDB created with ", keys(%homoDB), " keys" if ($debug);
-#
-#my $hetvcf = Vcf->new(file => $hetinfile);
-#$hetvcf->parse_header();
-#
-#my %hetDB = ();
-#say "reading het vcf file" if ($debug);
-#while (my $y = $hetvcf->next_data_array()) {
-#    my $refID = $hetvcf->get_column($y,'CHROM');
-#    my $coord = $hetvcf->get_column($y,'POS');
-#    my $nt = $hetvcf->get_column($y,'ALT');
-#    my $hashkey = $refID . ":" . $coord . ":" . $nt;
-#
-#    my $info_column = $hetvcf->get_column($y,'INFO');
-#    my $DP4 = $hetvcf->get_info_field($info_column,'DP4');
-#    my @read_cnt = split /,/, $DP4;
-#    my $SNP_index = ($read_cnt[2] + $read_cnt[3])/($read_cnt[0] + $read_cnt[1] + $read_cnt[2] + $read_cnt[3]);
-#
-#    $hetDB{$hashkey} = $SNP_index;
-#
-#}
-#say "\%hetDB created with ", keys(%hetDB), " keys" if ($debug);
-
+# open referencce sequence fasta file
 my $refseqIO = Bio::SeqIO->new(
     -file   =>  $refseqfile,
     -format =>  'fasta',
 );
 say "\$refseqIO is a '", ref($refseqIO), "'" if ($debug);
 
+# open masked sequence file
+# this file is typically created with RepeatMasker
+# after opening file, create a Bio::DB::Fasta object
+# from it to facilitate later analysis
 my $db;
 if ($maskedseqs) {
-    # Bio::DB::SeqFeature::Store
     $db      = Bio::DB::Fasta->new($maskedseqs);
     if ($debug) {
         say "reading masked sequence files in '$maskedseqs'";
@@ -136,6 +99,13 @@ if ($maskedseqs) {
     }
 }
 
+# Open file with coordinates to ignore
+# This is typically created by hand from other output files
+# Make sure coordinate to ignore is in column #1
+# and sequence ID is in column #3.
+# File can have data for multiple reference sequences
+# We will create a hash of the data with a unique key for each
+# position to ignore
 my %ignoreDB = (); 
 # expect file with coordinate in column 1 and sequence ID in column 3
 if ($ignorefile) {
@@ -157,9 +127,9 @@ if ($debug) {
     }
 }
 
+# create GFF DB object if user specifies a file of coordinates to keep
 my $gffdb;
 if ($gff) {
-    # Bio::DB::SeqFeature::Store
     say "loading GFF file '$gff'" if ($debug);
     $gffdb = Bio::DB::SeqFeature::Store->new( -adaptor => 'memory', -dsn => $gff);
 
@@ -168,6 +138,12 @@ if ($gff) {
         say "\$gffdb isa '" . ref($gffdb) . "'";
     }
 }
+
+#
+# This is the main loop of the program.
+# Loop through reference sequence file and process
+# potential SNPs using the VCF files and other
+# filters, above.
 
 my ($cnt,$i,$windowcnt) = (0,0,1);
 my (@SNPblock,@SNPlocalblock) = ();
@@ -183,20 +159,31 @@ while (my $refseq = $refseqIO->next_seq()) {
     say "refseq: '$refID'. length: '$refseqlength'" if ($debug);
     # $window is defined above
     # $increment is defined above
+    #
+    # Start windowing across DNA sequence using 
+    # the $window and $increment values to
+    # determine coordinates and movement
     my $window_SNP_index = 0;
     for (my ($j,$k) = ($start,$start + $window - 1); $j <= ($stop - $increment); $j += $increment, $k += $increment) {
         print "\n" if ($debug);
-        #last if (++$cnt >= 100 && $debug);
+    
         say "cnt = $cnt" if ($debug);
         
         say "\$j = '$j', \$k = '$k'" if ($debug);
         my $homo_region = "$refID:$j" . "-" . $k;
         say "homoregion = '$homo_region'" if ($debug);
         
+        # open VCF file of SNPs in homozygous mutant bulk
+        # refactor: take this out of the loop if there is any other
+        # way to get this region from the VCF data
         my $homovcf = Vcf->new( file => $homoinfile, region => $homo_region);
-        $homovcf->parse_header();
+        $homovcf->parse_header();# must call this method first
         say "\$homovcf isa '", ref($homovcf), "'" if ($debug);
         
+        # loop through alleles in VCF file for this region
+        # apply all the filters initialized above
+        # if allele passes the filters, push it
+        # on to local array
         my $homo_data_array = 0;
         while (my $x=$homovcf->next_data_array()) {
             ++$homo_data_array;
@@ -206,14 +193,13 @@ while (my $refseq = $refseqIO->next_seq()) {
             my $refID = $homovcf->get_column($x,'CHROM');
             my $homo_coord = $homovcf->get_column($x,'POS');
             my $homo_alt = $homovcf->get_column($x,'ALT');
-            #say "coord = '$coord'" if ($debug);
-            #say "refID = '$refID'" if ($debug);
             my @homo_read_cnt = split /,/, $homoDP4;
 
             my $homo_SNP_index = ($homo_read_cnt[2] + $homo_read_cnt[3])/($homo_read_cnt[0] + $homo_read_cnt[1] + $homo_read_cnt[2] + $homo_read_cnt[3]);
 
             say "homo SNP identified at coordinate $homo_coord" if ($debug);
 
+            # if this location is masked, skip it
             if ($maskedseqs) {
                 $seq = $db->get_Seq_by_id($refID);
                 my $nt = $seq->subseq($homo_coord => $homo_coord);
@@ -226,6 +212,8 @@ while (my $refseq = $refseqIO->next_seq()) {
                 }
             }
 
+            # if this location is to be ignored, skip it
+            # typically, these coords come alleles in the WT/het bulk
             if ($ignorefile) {
                 my $hashkey = $refID . ":" . $homo_coord;
                 say "checking if I should ignore '$hashkey'" if ($debug);
@@ -235,6 +223,8 @@ while (my $refseq = $refseqIO->next_seq()) {
                 }
             }
 
+            # if this location is to be included, keep it
+            # if the user specified a GFF file and this location is not in it, skip it
             if ($gff) {
                 say "checking for features that overlap location " . $homo_coord if ($debug);
                 my @tfeatures = $gffdb->get_features_by_location(
@@ -387,7 +377,7 @@ if ($debug) {
     print Dumper(@plotdata);
 }
 
-if ($tabstdout) {
+if (1 | $tabstdout) {
     open(TAB,">",$outfile);
     no strict "vars";
     #for my $xy (sort {$a[0] <=> $b[0]} @plotdata) {
@@ -406,28 +396,28 @@ sub help {
 
 say <<HELP;
 
-    "homoinfile:s"  =>  VCF file of homozygous pool
-    "hetinfile:s"  =>  VCF file of het/WT pool
-    "refseq:s"      =>  fasta file of reference sequence(s) used for VCF files
-    "refseqname:s"  
-    "outfile:s" =>  \$outfile,
-    "window:i"  =>      size of sliding window (default = 4M nt)
-    "increment:i"   =>  increment amount (default = 10K nt)
-    "start:i"
-    "stop:i"
-    "max"           =>  instead of average in a window, use the maximum SNP index
-    "maskedseq:s"   =>  name of FASTA file containing masked sequences to ignore
-    "ignore:s"      =>  name of tab-delimited file containing coordinates to ignore in first column and reference sequence ID in column 3
-    "gff:s"         =>  name of GFF3 file containing sequences to include -- happens after maskedseq.
-    "tab"           =>  \$tabstdout,
-    "overlap"       =>  overlap windows - default behavior does not overlap windows
-    "median"        =>  use the median as the window genome coordinate instead of the mean
-    "maxcoord"      =>  for plotting, use last coordinate of genome window 
-    "mincoord"
-    "onlyones"      =>  only output sites with SNPindex = 1
-    "debug"         =>  \$debug,
-    "verbose"       =>  \$verbose,
-    "help"          =>  \$help,
+    "homoinfile:s"      =>  VCF file of homozygous pool (default = 'homoinfile')
+    "hetinfile:s"       =>  VCF file of het/WT pool (default = 'hetinfile')
+    "refseqfile:s"      =>  fasta file of reference sequence(s) used for VCF files (required)
+    "refseqname:s"      =>  name of referendce sequence in fasta file (required)
+    "outfile:s"         =>  name of output file [default = <NameOfHomoinfile>.SNPindex]
+    "window:i"          =>  size of sliding window (default = 4M nt)
+    "increment:i"       =>  window increment amount (default = 10K nt)
+    "start:i"           =>  start coordinate on reference sequence (optional)
+    "stop:i"            =>  stop coordinate on reference sequence (optional)
+    "max"               =>  instead of average in a window, use the maximum SNP index
+    "maskedseq:s"       =>  name of FASTA file containing masked sequences to ignore (optional)
+    "ignore:s"          =>  name of tab-delimited file containing coordinates to ignore in first column
+                             and reference sequence ID in column 3 (optional)
+    "gff:s"             =>  name of GFF3 file containing sequences to include -- happens after maskedseq. (optional)
+    "tab"               =>  output a tab-delimited file (this is the only option)
+    "median"            =>  for plotting, use the median as the window genome coordinate instead of the mean
+    "maxcoord"          =>  for plotting, use last coordinate of genome window 
+    "mincoord"          =>  for plotting, use the minimum coordinate of genome window
+    "onlyones"          =>  only output sites with SNPindex = 1
+    "debug"             =>  debugging output to terminal
+    "verbose"           =>  verbose output to terminal
+    "help"              =>  print this help menu
 
     --maskedseq & --ignore are negative filters. They cause the script to ignore potential SNPs in the masked regions or specified coordinates.
     --gff is a positive filter. It causes the script to accept potential SNPs only in the specified regions.
