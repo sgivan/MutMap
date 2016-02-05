@@ -258,7 +258,7 @@ if ($debug) {
     print Dumper(@plotdata);
 }
 
-if ($tabstdout) {
+if (1 || $tabstdout) {
     for my $xy (@plotdata) {
         if ($onlyones) {
             next if ($xy->[1] < 1);

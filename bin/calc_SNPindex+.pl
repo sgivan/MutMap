@@ -377,7 +377,7 @@ if ($debug) {
     print Dumper(@plotdata);
 }
 
-if (1 | $tabstdout) {
+if (1 || $tabstdout) {
     open(TAB,">",$outfile);
     no strict "vars";
     #for my $xy (sort {$a[0] <=> $b[0]} @plotdata) {
