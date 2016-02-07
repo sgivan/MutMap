@@ -1,0 +1,3 @@
+[submodule "vcftools"]
+	path = vcftools
+	url = git@github.com:vcftools/vcftools.git
