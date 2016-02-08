@@ -103,5 +103,69 @@ is($col3[0],'concatseq','col3 val1');
 is($col3[1],'concatseq','col3 val2');
 is($col3[2],'concatseq','col3 val2');
 
+ok(
+    eval {
+        open(CMD04,"-|","$script --infile homo.vcf --window 2000 --median --ignore ignore.txt");
+        chomp(@cmd_out = <CMD04>);
+        close(CMD04);
+    }, 'CMD04'
+);
+
+#27701888        0.541244060869365       concatseq
+#66071011        0.525455122605403       concatseq
+#91529414        0.500364552386319       concatseq
+
+(@col1,@col2,@col3) = ();
+
+for (my $i = 0; $i < scalar(@cmd_out); ++$i) {
+    ($col1[$i], $col2[$i], $col3[$i]) = split "\t", $cmd_out[$i];
+}
+
+is($col1[0],27701888,'col1 val1');
+is($col1[1],66071011,'col1 val2');
+is($col1[2],91529414,'col1 val3');
+
+is($col2[0],0.541244060869365,'col2 val1');
+is($col2[1],0.525455122605403,'col2 val2');
+is($col2[2],0.500364552386319,'col2 val2');
+
+is($col3[0],'concatseq','col3 val1');
+is($col3[1],'concatseq','col3 val2');
+is($col3[2],'concatseq','col3 val2');
+
+
+#[02/08/16 15:03:43] stahl test/$ ../bin/calc_SNPindex.pl --infile homo.vcf --window 2000 --maskedseq masked.fa
+#38412004        0.536230545468286       concatseq
+#87766671        0.506347647280669       concatseq
+
+ok(
+    eval {
+        open(CMD05,"-|","$script --infile homo.vcf --window 2000 --maskedseq masked.fa");
+        chomp(@cmd_out = <CMD05>);
+        close(CMD05);
+    }, 'CMD05'
+);
+
+(@col1,@col2,@col3) = ();
+
+for (my $i = 0; $i < scalar(@cmd_out); ++$i) {
+    ($col1[$i], $col2[$i], $col3[$i]) = split "\t", $cmd_out[$i];
+}
+
+is($col1[0],38412004,'col1 val1');
+is($col1[1],87766671,'col1 val2');
+#is($col1[2],91529414,'col1 val3');
+ok(! exists($col1[2]), 'no value for row 3');
+
+is($col2[0],0.536230545468286,'col2 val1');
+is($col2[1],0.506347647280669,'col2 val2');
+#is($col2[2],0.500364552386319,'col2 val2');
+ok(! exists($col2[2]), 'no value for row 3');
+
+is($col3[0],'concatseq','col3 val1');
+is($col3[1],'concatseq','col3 val2');
+#is($col3[2],'concatseq','col3 val2');
+ok(! exists($col3[2]), 'no value for row 3');
+
 
 done_testing();
