@@ -271,6 +271,7 @@ if (1 || $tabstdout) {
 sub help {
 
 say <<HELP;
+Usage:
 
     "infile:s"      =>  name of input file
     "outfile:s"     =>  name of output file
