@@ -35,7 +35,8 @@ use Bio::DB::Fasta;
 #use Bio::DB::GFF;
 use Bio::DB::SeqFeature::Store;
 use Bio::DB::SeqFeature::Store::GFF3Loader;
-use lib '/share/apps/perl5/vcftools/lib/site_perl/5.14.2';
+#use lib '/share/apps/perl5/vcftools/lib/site_perl/5.14.2';
+use lib '../vcftools/src/perl/';
 use Vcf;
 $Data::Dumper::Deepcopy = 1;
 

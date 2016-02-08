@@ -24,35 +24,84 @@ use warnings;
 #use Test::More tests => 1;
 use Test::More;
 # 
-use lib '/share/apps/perl5/vcftools/lib/site_perl/5.14.2';
+#use lib '/share/apps/perl5/vcftools/lib/site_perl/5.14.2';
+use lib '../vcftools/src/perl/';
 
 use_ok('Vcf');
 
 my $script = '../bin/calc_SNPindex.pl';
+my (@cmd_out,$cmd_out);
 
 pass('calc_SNPindex.pl exists') if (-e -x '../bin/calc_SNPindex.pl');
 
-open(CMD01,"-|","$script --help");
-my $cmd_out = <CMD01>;
-close(CMD01);
+ok(
+    eval {
+        open(CMD01,"-|","$script --help");
+        $cmd_out = <CMD01>;
+        close(CMD01);
+    },'CMD01'
+);
 
 like($cmd_out, qr/usage/i, 'help menu');
 
-open(CMD02,"-|", "$script --infile homo.vcf --window 20000");
-my @cmd_out = <CMD02>;
-close(CMD02);
+ok(
+    eval {
+        open(CMD02,"-|", "$script --infile homo.vcf --window 20000");
+        @cmd_out = <CMD02>;
+        close(CMD02);
+    }, 'CMD02'
+);
+
 
 is(scalar(@cmd_out),1,'one output line');
 
 chomp($cmd_out[0]);
 is($cmd_out[0],"53607763\t0.528430512072431\tconcatseq",'data valid');
 
-open(CMD03,"-|","$script --infile homo.vcf --window 20000 --median");
-@cmd_out = <CMD03>;
-close(CMD03);
+ok(
+    eval{
+        open(CMD03,"-|","$script --infile homo.vcf --window 20000 --median");
+        @cmd_out = <CMD03>;
+        close(CMD03);
+    }, 'CMD03'
+);
 
 chomp($cmd_out[0]);
 is($cmd_out[0],"47036490\t0.528430512072431\tconcatseq",'median coordinate');
+
+ok(
+    eval {
+        open(CMD03,"-|","$script --infile homo.vcf --window 2000 --median");
+        chomp(@cmd_out = <CMD03>);
+        close(CMD03);
+    }, 'CMD03'
+);
+
+is(scalar(@cmd_out),3,'2K window data');
+
+#say @cmd_out;
+
+#26534690        0.542205934956505       concatseq
+#53815659        0.521581173856048       concatseq
+#89416463        0.517232315358291       concatseq
+
+my (@col1,@col2,@col3);
+
+for (my $i = 0; $i < scalar(@cmd_out); ++$i) {
+    ($col1[$i], $col2[$i], $col3[$i]) = split "\t", $cmd_out[$i];
+}
+
+is($col1[0],26534690,'col1 val1');
+is($col1[1],53815659,'col1 val2');
+is($col1[2],89416463,'col1 val3');
+
+is($col2[0],0.542205934956505,'col2 val1');
+is($col2[1],0.521581173856048,'col2 val2');
+is($col2[2],0.517232315358291,'col2 val2');
+
+is($col3[0],'concatseq','col3 val1');
+is($col3[1],'concatseq','col3 val2');
+is($col3[2],'concatseq','col3 val2');
 
 
 done_testing();
