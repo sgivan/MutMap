@@ -36,7 +36,8 @@ use Bio::SeqIO;
 use Bio::DB::Fasta;
 use Bio::DB::SeqFeature::Store;
 #use Bio::DB::SeqFeature::Store::GFF3Loader;
-use lib '/share/apps/perl5/vcftools/lib/site_perl/5.14.2';
+#use lib '/share/apps/perl5/vcftools/lib/site_perl/5.14.2';
+use lib '../vcftools/src/perl/';
 use Vcf;
 $Data::Dumper::Deepcopy = 1;
 
@@ -395,6 +396,7 @@ if (1 || $tabstdout) {
 sub help {
 
 say <<HELP;
+command-line usage:
 
     "homoinfile:s"      =>  VCF file of homozygous pool (default = 'homoinfile')
     "hetinfile:s"       =>  VCF file of het/WT pool (default = 'hetinfile')
