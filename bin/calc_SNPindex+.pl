@@ -39,6 +39,8 @@ use Bio::DB::SeqFeature::Store;
 #use lib '/share/apps/perl5/vcftools/lib/site_perl/5.14.2';
 use lib '../vcftools/src/perl/';
 use Vcf;
+use lib '../lib';
+use MutMap::FastaDB;
 $Data::Dumper::Deepcopy = 1;
 
 my
@@ -93,11 +95,13 @@ say "\$refseqIO is a '", ref($refseqIO), "'" if ($debug);
 # from it to facilitate later analysis
 my $db;
 if ($maskedseqs) {
-    $db      = Bio::DB::Fasta->new($maskedseqs);
-    if ($debug) {
-        say "reading masked sequence files in '$maskedseqs'";
-        say "\$db isa " . ref($db);
-    }
+#    $db      = Bio::DB::Fasta->new($maskedseqs);
+#    if ($debug) {
+#        say "reading masked sequence files in '$maskedseqs'";
+#        say "\$db isa " . ref($db);
+#    }
+    my $fastadb = MutMap::FastaDB->new( filename => $maskedseqs);
+    $db = $fastadb->makeDB();
 }
 
 # Open file with coordinates to ignore
