@@ -30,8 +30,33 @@ my $mutmap = MutMap->new(fastafile=>'masked.fa');
 
 isa_ok($mutmap,'MutMap');
 
+is($mutmap->fastadb->filename(),'masked.fa',"filename passed in constructor");
+
 $mutmap->makeFastaDB();
 
-is($mutmap->fastadb->filename(),'masked.fa',"filename OK");
+if (-e "masked.fa.index") {
+    pass('fasta index created');
+} else {
+    fail('no fasta index created');
+}
+
+unlink("masked.fa.index");
+
+my $mutmap2 = MutMap->new();
+
+$mutmap2->fastadb->filename('masked.fa');
+
+is($mutmap2->fastadb->filename(),'masked.fa','filename set with attribute method');
+
+$mutmap2->makeFastaDB();
+
+if (-e "masked.fa.index") {
+    pass('fasta index created');
+} else {
+    fail('no fasta index created');
+}
+
+unlink("masked.fa.index");
+
 
 done_testing();

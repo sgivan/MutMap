@@ -37,8 +37,13 @@ sub _build_fastadb {
     my $fastafile = $self->{_fastafile};
     require MutMap::FastaDB;
 
-    my $fastadb = MutMap::FastaDB->new(filename => $fastafile);
-    $fastadb->makeFastaDB();
+    my $fastadb = MutMap::FastaDB->new();;
+    if ($fastafile) {
+        $fastadb->filename($fastafile);
+        $fastadb->makeFastaDB();
+    } else {
+        my $fastadb = MutMap::FastaDB->new();
+    }
     return $fastadb;
 }
 
