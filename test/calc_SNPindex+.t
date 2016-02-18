@@ -51,7 +51,7 @@ ok(
         open(CMD02,"-|","$script --ignore ignore.txt --maskedseq masked.fa --homoinfile homo.80000001-88000000.bcf.gz --hetinfile het.bcf.gz --refseqfile refseq.fa --tab --gff filter.gff --mincoord --increment 200000 --window 2000000 --refseqname concatseq --start 80000001 --stop 88000000 > homo.80000001-88000000.bcf.gz.SNPindex");
         chomp(@cmd_out = <CMD02>);
         close(CMD02);
-    }, 'CMD05'
+    }, 'CMD02'
 );
 
 open(CMPR,"-|","diff -q homo.80000001-88000000.bcf.gz.SNPindex homo.80000001-88000000.bcf.gz.SNPindex.ref");

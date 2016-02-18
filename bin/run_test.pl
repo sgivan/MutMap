@@ -44,11 +44,11 @@ my $harness = TAP::Harness->new(\%args);
 
 $harness->rules({
         seq     =>  [
-            { par   =>  ['*.t'], },
+            { seq   =>  ['*.t'], },
         ]
     }
 );
-my @test_scripts = qw( calc_SNPindex.t calc_SNPindex+.t );
+my @test_scripts = qw( calc_SNPindex.t calc_SNPindex+.t MutMap.t );
 my $aggregator = $harness->runtests(@test_scripts);
 
 if ($help) {

@@ -26,13 +26,16 @@ use Test::More;
 
 use_ok('MutMap');
 
+# passing a fastafile to the constructor should build the index
 my $mutmap = MutMap->new(fastafile=>'masked.fa');
 
 isa_ok($mutmap,'MutMap');
 
 is($mutmap->fastadb->filename(),'masked.fa',"filename passed in constructor");
 
-$mutmap->makeFastaDB();
+my $fastadb = $mutmap->fastadb();
+
+isa_ok($fastadb,'MutMap::FastaDB');
 
 if (-e "masked.fa.index") {
     pass('fasta index created');
