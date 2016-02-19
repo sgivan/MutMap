@@ -33,10 +33,6 @@ use strict;
 use Data::Dumper;
 use Statistics::Descriptive;
 use Bio::SeqIO;
-use Bio::DB::Fasta;
-use Bio::DB::SeqFeature::Store;
-#use Bio::DB::SeqFeature::Store::GFF3Loader;
-#use lib '/share/apps/perl5/vcftools/lib/site_perl/5.14.2';
 use lib '../vcftools/src/perl/';
 use Vcf;
 use lib '../lib';
@@ -131,7 +127,9 @@ if ($debug) {
 my $gffdb;
 if ($gff) {
     say "loading GFF file '$gff'" if ($debug);
-    $gffdb = Bio::DB::SeqFeature::Store->new( -adaptor => 'memory', -dsn => $gff);
+
+    $mutmap->featuredb->featurefile($gff);
+    $gffdb = $mutmap->makeFeatureDB();
 
     if ($debug) {
         say "loaded GFF file";

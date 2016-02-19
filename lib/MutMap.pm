@@ -67,12 +67,29 @@ sub _build_ignoredb {
     return $ignoredb;
 }
 
+has 'featuredb' => (
+    is          =>  'ro',
+    isa         =>  'MutMap::FeatureDB',
+    lazy_build  =>  1,
+    handles     =>  [qw( makeFeatureDB )],
+);
+
+sub _build_featuredb {
+    my $self = shift;
+    require MutMap::FeatureDB;
+
+    my $featuredb = MutMap::FeatureDB->new();
+
+    return $featuredb;
+}
+
 sub BUILD {
     my $self = shift;
     my $args = shift;
 
 #    say dump($args);
 
+    $self->{_featurefile} = $args->{featurefile};
     $self->{_fastafile} = $args->{fastafile};
     $self->{_ignorefile} = $args->{ignorefile};
 }
