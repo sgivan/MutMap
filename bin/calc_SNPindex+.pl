@@ -114,14 +114,9 @@ if ($maskedseqs) {
 my %ignoreDB = (); 
 # expect file with coordinate in column 1 and sequence ID in column 3
 if ($ignorefile) {
-    open(my $IG, "<", $ignorefile);
-    for my $line (<$IG>) {
-        chomp($line);
-        my @linevals = split "\t", $line;
-        # keys are "refID:coordinate"
-        ++$ignoreDB{$linevals[2] . ":" . $linevals[0]};
-    }
-    close($IG);
+    $mutmap->ignoredb->ignorefile($ignorefile);
+    $mutmap->makeIgnoreDB(\%ignoreDB);
+    # keys are "refID:coordinate"
 }
 
 if ($debug) {

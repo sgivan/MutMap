@@ -41,10 +41,30 @@ sub _build_fastadb {
     if ($fastafile) {
         $fastadb->filename($fastafile);
         $fastadb->makeFastaDB();
-    } else {
-        my $fastadb = MutMap::FastaDB->new();
-    }
+    }# else {
+#        my $fastadb = MutMap::FastaDB->new();
+#    }
     return $fastadb;
+}
+
+has 'ignoredb' => (
+    is          =>  'ro',
+    isa         =>  'MutMap::IgnoreDB',
+    lazy_build  =>  1,
+    handles     =>  [qw( makeIgnoreDB )],
+);
+
+sub _build_ignoredb {
+    my $self = shift;
+    my $ignorefile = $self->{_ignorefile};
+    require MutMap::IgnoreDB;
+
+    my $ignoredb = MutMap::IgnoreDB->new();
+    if ($ignorefile) {
+        $ignoredb->filename($ignorefile);
+        $ignoredb->makeIgnoreDB();
+    }
+    return $ignoredb;
 }
 
 sub BUILD {
@@ -54,6 +74,7 @@ sub BUILD {
 #    say dump($args);
 
     $self->{_fastafile} = $args->{fastafile};
+    $self->{_ignorefile} = $args->{ignorefile};
 }
 
 no Moose;
