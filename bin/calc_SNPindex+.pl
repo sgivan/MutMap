@@ -93,16 +93,15 @@ say "\$refseqIO is a '", ref($refseqIO), "'" if ($debug);
 # this file is typically created with RepeatMasker
 # after opening file, create a Bio::DB::Fasta object
 # from it to facilitate later analysis
-my ($mutmat,$db);
+my ($mutmap,$db);
+$mutmap = MutMap->new();
 if ($maskedseqs) {
-#    $db      = Bio::DB::Fasta->new($maskedseqs);
-#    if ($debug) {
-#        say "reading masked sequence files in '$maskedseqs'";
-#        say "\$db isa " . ref($db);
-#    }
-    #my $fastadb = MutMap->new( fastafile => $maskedseqs);
-    $mutmap = MutMap->new( fastafile => $maskedseqs);
-    #$db = $fastadb->makeDB();
+    if ($debug) {
+        say "reading masked sequence files in '$maskedseqs'";
+        say "\$db isa " . ref($db);
+    }
+    $mutmap->fastadb->filename($maskedseqs);
+    $db = $mutmap->makeFastaDB();
 }
 
 # Open file with coordinates to ignore
