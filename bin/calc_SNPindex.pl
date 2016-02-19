@@ -31,13 +31,15 @@ use strict;
 use Data::Dumper;
 use Statistics::Descriptive;
 use Bio::SeqIO;
-use Bio::DB::Fasta;
+#use Bio::DB::Fasta;
 #use Bio::DB::GFF;
 use Bio::DB::SeqFeature::Store;
 use Bio::DB::SeqFeature::Store::GFF3Loader;
 #use lib '/share/apps/perl5/vcftools/lib/site_perl/5.14.2';
 use lib '../vcftools/src/perl/';
 use Vcf;
+use lib '../lib';
+use MutMap;
 $Data::Dumper::Deepcopy = 1;
 
 my ($debug,$verbose,$help,$infile,$outfile,$window,$blockcnt,$tabstdout,$usemax,$maskedseqs,$gff,$overlap,$usemedian,$ignorefile,$onlyones);
@@ -70,10 +72,12 @@ $window = 5 unless ($window);
 my $vcf = Vcf->new(file=>$infile);
 $vcf->parse_header();
 
-my $db;
+my ($db,$mutmap);
+$mutmap = MutMap->new();
 if ($maskedseqs) {
-    # Bio::DB::SeqFeature::Store
-    $db      = Bio::DB::Fasta->new($maskedseqs);
+#    $db      = Bio::DB::Fasta->new($maskedseqs);
+    $mutmap->fastadb->filename($maskedseqs);
+    $db = $mutmap->makeFastaDB();
     if ($debug) {
         say "reading masked sequence files in '$maskedseqs'";
         say "\$db isa " . ref($db);
