@@ -1,0 +1,6 @@
+# the following command took hours to complete
+bs -J +test '../bin/calc_SNPindex+.pl --homoinfile homo.vcf --hetinfile het.vcf --window 200000  --refseqfile refseq.fa --refseqname concatseq --maskedseq masked.fa --ignore ignore.txt --gff filter.gff > plus_out.txt'
+#
+~/projects/mutmap/bin/calc_SNPindex+.pl --ignore B2SNPindex_w1_gff_masked_overlap_AD.1.txt --maskedseq ForrestConcat.fa.masked --homoinfile homo.80000001-88000000.bcf.gz --hetinfile het.bcf.gz --refseqfile ForrestConcat.fa --tab --gff Gmax_cds.blastn.gff --mincoord --increment 200000 --window 2000000 --refseqname concatseq --start 80000001 --stop 88000000 > homo.80000001-88000000.bcf.gz.SNPindex
+#adapt the above command to work with the test files
+bsub -J test -o test.o -e test.e '~/projects/mutmap/bin/calc_SNPindex+.pl --ignore ignore.txt --maskedseq masked.fa --homoinfile homo.80000001-88000000.bcf.gz --hetinfile het.bcf.gz --refseqfile refseq.fa --tab --gff filter.gff --mincoord --increment 200000 --window 2000000 --refseqname concatseq --start 80000001 --stop 88000000 > homo.80000001-88000000.bcf.gz.SNPindex'

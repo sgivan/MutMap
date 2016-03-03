@@ -1,0 +1,2 @@
+# this generates a waring about the unknown --increment, but otherwise runs cleanly
+../bin/calc_SNPindex.pl --infile homo.vcf --window 2000000 --increment 10000
