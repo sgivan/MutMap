@@ -1,0 +1,133 @@
+bs -J concatForrst ~/projects/NGScripts/bin/concat_seqs.pl --infile Forrest.fa --outfile ConcatForrest.fa --N 13 --format --fasta --gff 3
+# bwa mem
+#-I FLOAT[,FLOAT[,INT[,INT]]]
+#    specify the mean, standard deviation (10% of the mean if absent), max
+#    (4 sigma from the mean if absent) and min of the insert size distribution.
+#    FR orientation only. [inferred]
+bsm -J bwablk1 -n 40 "bwa mem -I 350 -t 40 -R '@RG\tID:01\tSM:bulk1_homo\tLB:library1' index/ForrestConcat.fa Bulk1_homo_R1.fq Bulk1_homo_R2.fq > Bulk1_homo.sam"
+#bsm -J sampipe -n 6 'samtools view -@ 4 -b Bulk1_homo.sam | samtools sort -T /scratch/B1 -n -@ 10 -O bam | samtools fixmate -O bam - Bulk1_homo_srtbyname_fixmate.bam'
+#bsm -J 1srt samtools sort -O bam -T /scratch/Bulk1 -o Bulk1_homo_fixmate_sort.bam Bulk1_homo_srtbyname_fixmate.bam 
+#bsm -J b1mkdups -n 10 java -XX:ParallelGCThreads=10 -Xmx2g -jar /share/apps/picard/dist/picard.jar MarkDuplicates INPUT=Bulk1_homo_fixmate_sort.bam OUTPUT=Bulk1_homo_fixmate_sort_mkdup.bam METRICS_FILE=Bulk1_metrics.txt MAX_FILE_HANDLES_FOR_READ_ENDS_MAP=250 VALIDATION_STRINGENCY=LENIENT
+#
+bsm -J paired samtools view -h -f 0x0002 -o Bulk1_homo_paired.sam Bulk1_homo.sam 
+#
+bsm -J 0x0800 samtools view -h -F 0x0800 -o Bulk1_homo_paired_no0x0800.sam Bulk1_homo_paired.sam 
+bsm -J srtbyname -n 10 samtools sort -n -T /scratch/B1 -O sam -@ 10 -o Bulk1_homo_paired_no0x0800_srtbyname.sam Bulk1_homo_paired_no0x0800.sam
+bsm -J fixmate samtools fixmate -r Bulk1_homo_paired_no0x0800_srtbyname.sam Bulk1_homo_paired_no0x0800_srtbyname_fixmate.sam
+bs -J samsrt -n 5 samtools sort -O sam -@ 5 -m 1G -o Bulk1_homo_paired_no0x0800_srtbyname_fixmate_srtbycoord.sam -T /scratch/B1srt Bulk1_homo_paired_no0x0800_srtbyname_fixmate.sam 
+bsm -J b1mkdups -n 10 java -XX:ParallelGCThreads=10 -Xmx2g -jar /share/apps/picard/dist/picard.jar MarkDuplicates INPUT=Bulk1_homo_paired_no0x0800_srtbyname_fixmate_srtbycoord.sam OUTPUT=Bulk1_homo_paired_no0x0800_srtbyname_fixmate_srtbycoord_mkdup.bam METRICS_FILE=Bulk1_metrics.txt MAX_FILE_HANDLES_FOR_READ_ENDS_MAP=250 VALIDATION_STRINGENCY=LENIENT
+#
+#
+bsm -J mpileup01 -n 2 'samtools mpileup --BCF --uncompressed --fasta-ref index/ForrestConcat.fa Bulk1_homo_paired_no0x0800_srtbyname_fixmate_srtbycoord_mkdup.bam | bcftools call --variants-only --multiallelic-caller --output-type z --output Bulk01_call.vcf.gz'
+bsm -J mpileup02 'samtools mpileup --max-depth 800 --fasta-ref index/ForrestConcat.fa --min-MQ 30 --min-BQ 20 --BCF --uncompressed --skip-indels Bulk1_homo_paired_no0x0800_srtbyname_fixmate_srtbycoord_mkdup.bam | bcftools call --variants-only --multiallelic-caller --output-type z --output Bulk01_02_call.vcf.gz'
+bsm -J mpileup03 'samtools mpileup --fasta-ref index/ForrestConcat.fa --BCF --uncompressed --skip-indels Bulk1_homo_paired_no0x0800_srtbyname_fixmate_srtbycoord_mkdup.bam | bcftools call --variants-only --consensus-caller --constrain trio --output-type z --output Bulk01_03_call.vcf.gz'
+#
+#
+# from an earlier effort (mutmap_Forrest+Mutants/bwa/cmd)
+# various filtering steps
+module load bcftools
+bcftools filter -i'%TYPE="snp" && %QUAL>=10' --output Bulk1_noINDEL.vcf --output-type v Bulk1.vcf
+bcftools filter -i'%TYPE="snp" && %QUAL>=10' --output Bulk2_noINDEL.vcf --output-type v Bulk2.vcf
+bcftools filter -i'%TYPE="snp" && %QUAL>=100 && (DP4[0]==0 && DP4[1]==0)' --output Bulk1_noINDEL_noRef.vcf --output-type v Bulk1.vcf
+bcftools filter -i'%TYPE="snp" && %QUAL>=100 && (DP4[0]==0 && DP4[1]==0) && DP>=10' --output Bulk1_noINDEL_noRef_gt10X.vcf --output-type v Bulk1.vcf
+bcftools filter -i'%TYPE="snp" && %QUAL>=100' --output Bulk2_noINDEL.vcf --output-type v Bulk2.vcf
+bcftools filter -i'%TYPE="snp" && %QUAL>=100 && ((DP4[0] + DP4[1])/(DP4[2]+DP4[3]) > 0.25) && DP>=10' --output Bulk2_noINDEL_Ref_gt10X.vcf --output-type v Bulk2.vcf
+bcftools filter -i'%TYPE="snp" && %QUAL>=100 && ((DP4[0] + DP4[1])/(DP4[2]+DP4[3]) > 0.4 && (DP4[0] + DP4[1])/(DP4[2]+DP4[3]) < 0.6) && DP>=10' --output Bulk2_noINDEL_Ref_gt10X_narrow.vcf --output-type v Bulk2.vcf
+bcftools filter -i'%TYPE="snp" && %QUAL>=100 && ((DP4[0] + DP4[1])/(DP4[2]+DP4[3]) > 0.6) && DP>=10' --output Bulk2_noINDEL_Ref_gt10X_wide.vcf --output-type v Bulk2.vcf
+bcftools filter -i'%TYPE="snp" && %QUAL>=100 && ((DP4[0] + DP4[1])/(DP4[2]+DP4[3]) <= 0.1) && DP>=10' --output Bulk1_noINDEL_noRef_gt10X_0.1.vcf --output-type v Bulk1.vcf
+#
+# the next two are the final efforts, although they may not be perfect
+#
+bcftools filter -i'%TYPE="snp" && %QUAL>=100 && ((DP4[2] + DP4[3])/(DP4[0]+DP4[1]) >= 10) && DP>=10 && ((REF=="C" && ALT=="T") || (REF=="G" && ALT=="A"))' --output Bulk1_homo.vcf --output-type v Bulk01_call.vcf
+bcftools filter -i'%TYPE="snp" && %QUAL>=100 && DP>=10 && ((REF=="C" && ALT=="T") || (REF=="G" && ALT=="A"))' --output Bulk1_EMS.vcf --output-type v Bulk01_call.vcf
+bcftools filter -i'%TYPE="snp" && %QUAL>=100 && DP>=10 && ((REF=="C" && ALT=="T") || (REF=="G" && ALT=="A")) && MQ>=20' --output Bulk1_EMS_MQ20.vcf --output-type v Bulk01_call.vcf
+bcftools filter -i'%TYPE="snp" && %QUAL>=100 && (DP>=10 && DP<=45) && ((REF=="C" && ALT=="T") || (REF=="G" && ALT=="A")) && MQ>=20' --output Bulk1_EMS_MQ20_10DP45.vcf --output-type v Bulk01_call.vcf
+bcftools filter -i'%TYPE="snp" && %QUAL>=100 && (DP>=10 && DP<=45) && MQSB>0.5 && ((REF=="C" && ALT=="T") || (REF=="G" && ALT=="A")) && MQ>=20' --output Bulk1_EMS_MQ20_10DP45_MQSB05.vcf --output-type v Bulk01_call.vcf
+bcftools filter -i'%TYPE="snp" && %QUAL>=100 && MQSB>0.5 && ((REF=="C" && ALT=="T") || (REF=="G" && ALT=="A")) && MQ>=20' --output Bulk1_EMS_MQ20_MQSB05.vcf --output-type v Bulk01_call.vcf
+bcftools filter -i'%TYPE="snp" && %QUAL>=100 && (DP>=10 && DP<=45) && MQSB>0.5 && ((REF=="C" && ALT=="T") || (REF=="G" && ALT=="A")) && MQ>=20 && %bulk1_homo==1/1' --output Bulk1_EMS_MQ20_10DP45_MQSB05_homo.vcf --output-type v Bulk01_call.vcf
+bcftools filter -i'%TYPE="snp" && %QUAL>=100 && (((DP4[2] + DP4[3])/(DP4[0]+DP4[1]) >= 4) && ((DP4[2] + DP4[3])/(DP4[0]+DP4[1]) < 10)) && DP>=10 && ((REF="C" && ALT="T") || (REF="G" && ALT="A"))' --output Bulk1_hetero.vcf --output-type v Bulk01_call.vcf
+bs -J SNPindex './calc_SNPindex.pl --infile Bulk1_EMS.vcf --window 5 --tab > SNPindex.txt'
+#
+# try other mpileup outptu files
+#
+bcftools filter -i'%TYPE="snp" && %QUAL>=100 && (DP>=10 && DP<=45) && MQSB>0.5 && ((REF=="C" && ALT=="T") || (REF=="G" && ALT=="A")) && MQ>=20' --output Bulk01_02_EMS_MQ20_10DP45_MQSB05.vcf --output-type v Bulk01_02_call.vcf.gz
+bcftools filter -i'%TYPE="snp" && %QUAL>=100 && (DP>=10 && DP<=45) && MQSB>0.5 && ((REF=="C" && ALT=="T") || (REF=="G" && ALT=="A")) && MQ>=20' --output Bulk01_03_EMS_MQ20_10DP45_MQSB05.vcf --output-type v Bulk01_03_call.vcf.gz
+bs -J blastn -n 5 blastn -db blastdb/ForrestConcat -query Glyma.08G108900.nfa -out Glyma.08G108900.blastn -num_threads 5
+bs -J blastn -n 5 blastn -db blastdb/ForrestConcat -query Glycine_max_GLYMA08G11490_sequence.fa -out Glycine_max_GLYMA08G11490_sequence.fa.blastn -num_threads 5
+bs -J blastn -n 5 blastn -db blastdb/ForrestConcat -query Glyma.08G108900.fromPramad.nfa -out Glyma.08G108900.fromPramad.nfa.blastn -num_threads 5
+#
+#
+# Map Bulk2 to concat sequence
+#
+bsm -J bwablk2 -n 40 "bwa mem -I 350 -t 40 -R '@RG\tID:01\tSM:bulk2_WT\tLB:library2' index/ForrestConcat.fa Bulk2_R1.fq Bulk2_R2.fq > Bulk2_WT.sam"
+#
+# map WT genomic to concat sequence
+bsm -J bwaWT -n 40 "bwa mem -I 350 -t 40 -R '@RG\tID:01\tSM:WT\tLB:library3' index/ForrestConcat.fa WT_R1.fq WT_R2.fq > WT.sam"
+bs -J WTS2B -n 10 'samtools view -b -@ 4 WT.sam | samtools sort -@ 6 -O bam -T /mnt/scratch/wt -o WT_sort.bam'
+bsm -J WTndx samtools index WT_sort.bam
+#
+##
+bs -J ndx samtools index -c -m 30 Bulk1_homo_paired_no0x0800_srtbyname_fixmate_srtbycoord_mkdup.bam
+bsm -J B1.tview 'samtools tview -p concatseq:551889021-551889081 -d T Bulk1_homo_paired_no0x0800_srtbyname_fixmate_srtbycoord_mkdup.bam index/ForrestConcat.fa > B1_concatseq:551889021-551889081.tview'
+# testing
+./calc_SNPindex.pl --infile Bulk01_03_EMS_MQ20_10DP45_MQSB05.vcf --window 3 --tab --maskedseq masked_seqs/ForrestConcat.fa.masked  > tmp.txt.masked
+#
+## try some more restrictive filters
+##
+## none of these work b/c of the %bulk1_homo term
+bsm -J bcf00 bcftools filter -i'%TYPE="snp" && %QUAL>=100 && (DP>=20 && DP<=55) && MQSB>0.5 && ((REF=="C" && ALT=="T") || (REF=="G" && ALT=="A")) && MQ>=20 && %bulk1_homo==1/1' --output Bulk1_EMS_MQ20_20DP45_MQSB05_homo.vcf --output-type v Bulk01_call.vcf
+bsm -J bcf01 bcftools filter -i'%TYPE="snp" && %QUAL>=100 && (DP>=40 && DP<=80) && MQSB>0.5 && ((REF=="C" && ALT=="T") || (REF=="G" && ALT=="A")) && MQ>=20 && %bulk1_homo==1/1' --output Bulk1_EMS_MQ20_40DP80_MQSB05_homo.vcf --output-type v Bulk01_call.vcf
+bsm -J bcf02 bcftools filter -i'%TYPE="snp" && %QUAL>=100 && (DP>=40 && DP<=80) && MQSB>0.5 && ((REF=="C" && ALT=="T") || (REF=="G" && ALT=="A")) && MQ>=30 && %bulk1_homo==1/1' --output Bulk1_EMS_MQ30_40DP80_MQSB05_homo.vcf --output-type v Bulk01_call.vcf
+#
+bsm -J bcf00 bcftools filter -i'%TYPE="snp" && %QUAL>=100 && (DP>=20 && DP<=55) && MQSB>0.5 && ((REF=="C" && ALT=="T") || (REF=="G" && ALT=="A")) && MQ>=20' --output Bulk1_EMS_MQ20_20DP45_MQSB05.vcf --output-type v Bulk01_call.vcf
+bsm -J bcf01 bcftools filter -i'%TYPE="snp" && %QUAL>=100 && (DP>=40 && DP<=80) && MQSB>0.5 && ((REF=="C" && ALT=="T") || (REF=="G" && ALT=="A")) && MQ>=20' --output Bulk1_EMS_MQ20_40DP80_MQSB05.vcf --output-type v Bulk01_call.vcf
+bsm -J bcf02 bcftools filter -i'%TYPE="snp" && %QUAL>=100 && (DP>=40 && DP<=80) && MQSB>0.5 && ((REF=="C" && ALT=="T") || (REF=="G" && ALT=="A")) && MQ>=30' --output Bulk1_EMS_MQ30_40DP80_MQSB05.vcf --output-type v Bulk01_call.vcf
+#
+##
+##
+#
+#
+# Process the Bulk2 files in a similar way
+# these are the wt/het segregants
+bsm -J B2bwablk1 -n 40 "bwa mem -I 350 -t 40 -R '@RG\tID:02\tSM:bulk2\tLB:library2' index/ForrestConcat.fa Bulk2_R1.fq Bulk2_R2.fq > Bulk2.sam"
+#bsm -J sampipe -n 6 'samtools view -@ 4 -b Bulk2.sam | samtools sort -T /scratch/B2 -n -@ 10 -O bam | samtools fixmate -O bam - Bulk2_srtbyname_fixmate.bam'
+#bsm -J 1srt samtools sort -O bam -T /scratch/Bulk2 -o Bulk2_fixmate_sort.bam Bulk2_srtbyname_fixmate.bam 
+#bsm -J b1mkdups -n 10 java -XX:ParallelGCThreads=10 -Xmx2g -jar /share/apps/picard/dist/picard.jar MarkDuplicates INPUT=Bulk2_fixmate_sort.bam OUTPUT=Bulk2_fixmate_sort_mkdup.bam METRICS_FILE=Bulk2_metrics.txt MAX_FILE_HANDLES_FOR_READ_ENDS_MAP=250 VALIDATION_STRINGENCY=SILENT
+#
+bsm -J B2paired samtools view -h -f 0x0002 -o Bulk2_paired.sam Bulk2.sam 
+#
+bsm -J B20x0800 samtools view -h -F 0x0800 -o Bulk2_paired_no0x0800.sam Bulk2_paired.sam 
+bsm -J B2srtbyname -n 10 samtools sort -n -T /scratch/B2 -O sam -@ 10 -o Bulk2_paired_no0x0800_srtbyname.sam Bulk2_paired_no0x0800.sam
+bsm -J B2fixmate samtools fixmate -r Bulk2_paired_no0x0800_srtbyname.sam Bulk2_paired_no0x0800_srtbyname_fixmate.sam
+bs -J B2samsrt -n 5 samtools sort -O sam -@ 5 -m 1G -o Bulk2_paired_no0x0800_srtbyname_fixmate_srtbycoord.sam -T /scratch/B1srt Bulk2_paired_no0x0800_srtbyname_fixmate.sam 
+bsm -J B2b1mkdups -n 10 java -XX:ParallelGCThreads=10 -Xmx2g -jar /share/apps/picard/dist/picard.jar MarkDuplicates INPUT=Bulk2_paired_no0x0800_srtbyname_fixmate_srtbycoord.sam OUTPUT=Bulk2_paired_no0x0800_srtbyname_fixmate_srtbycoord_mkdup.bam METRICS_FILE=Bulk2_metrics.txt MAX_FILE_HANDLES_FOR_READ_ENDS_MAP=250 VALIDATION_STRINGENCY=SILENT
+#
+#
+bsm -J B2mpileup01 -n 2 'samtools mpileup --BCF --uncompressed --fasta-ref index/ForrestConcat.fa Bulk2_paired_no0x0800_srtbyname_fixmate_srtbycoord_mkdup.bam | bcftools call --variants-only --multiallelic-caller --output-type z --output Bulk02_call.vcf.gz'
+bsm -J B2mpileup02 'samtools mpileup --max-depth 800 --fasta-ref index/ForrestConcat.fa --min-MQ 30 --min-BQ 20 --BCF --uncompressed --skip-indels Bulk2_paired_no0x0800_srtbyname_fixmate_srtbycoord_mkdup.bam | bcftools call --variants-only --multiallelic-caller --output-type z --output Bulk02_02_call.vcf.gz'
+bsm -J B2mpileup03 'samtools mpileup --fasta-ref index/ForrestConcat.fa --BCF --uncompressed --skip-indels Bulk2_paired_no0x0800_srtbyname_fixmate_srtbycoord_mkdup.bam | bcftools call --variants-only --consensus-caller --constrain trio --output-type z --output Bulk02_03_call.vcf.gz'
+# try tags listed on this page: http://www.htslib.org/doc/samtools.html
+bsm -J B2mpileup01t -n 2 'samtools mpileup --output-tags 'INFO/AD,INFO/ADF,INFO/ADR,INFO/DPR,SP' --BCF --uncompressed --fasta-ref index/ForrestConcat.fa Bulk2_paired_no0x0800_srtbyname_fixmate_srtbycoord_mkdup.bam | bcftools call --variants-only --multiallelic-caller --output-type z --output Bulk02t_call.vcf.gz'
+bsm -J B1mpileup01t -n 2 'samtools mpileup --output-tags 'INFO/AD,INFO/ADF,INFO/ADR,INFO/DPR,SP' --BCF --uncompressed --fasta-ref index/ForrestConcat.fa Bulk1_homo_paired_no0x0800_srtbyname_fixmate_srtbycoord_mkdup.bam | bcftools call --variants-only --multiallelic-caller --output-type z --output Bulk01t_call.vcf.gz'
+plot-bamstats -p Bulk2_bamstats/ Bulk2_fixmate_sort.bam.bamstats 
+bsm -J picardstats java -XX:ParallelGCThreads=10 -Xmx2g -jar /share/apps/picard/dist/picard.jar CollectInsertSizeMetrics INPUT=Bulk2_fixmate_sort.bam OUTPUT=output.txt H=histogram.txt VALIDATION_STRINGENCY=SILENT
+#
+#
+bsm -J bcf00.1 bcftools filter -i'%TYPE="snp" && %QUAL>=100 && (DP>=20 && DP<=55) && MQSB>0.5 && ((REF=="C" && ALT=="T") || (REF=="G" && ALT=="A")) && MQ>=20' --output Bulk1_EMS_MQ20_20DP55_MQSB05.1.vcf --output-type v Bulk01_call.vcf
+# use new tags as filters
+bsm -J bcf02.1.AD bcftools filter -i'%TYPE="snp" && %QUAL>=100 && (AD>=20 && AD<=55) && MQSB>0.5 && ((REF=="C" && ALT=="T") || (REF=="G" && ALT=="A")) && MQ>=20' --output Bulk2_EMS_MQ20_20AD55_MQSB05.1.vcf --output-type v Bulk02t_call.vcf.gz
+bsm -J bcf01.1.AD bcftools filter -i'%TYPE="snp" && %QUAL>=100 && (AD>=20 && AD<=55) && MQSB>0.5 && ((REF=="C" && ALT=="T") || (REF=="G" && ALT=="A")) && MQ>=20' --output Bulk1_EMS_MQ20_20AD55_MQSB05.1.vcf --output-type v Bulk01t_call.vcf.gz
+#
+# coordinate of causal SNP
+551889051
+bs -J 01tb2v bcftools view --output-file Bulk01t_call.vcf --output-type v Bulk01t_call.vcf.gz 
+bs -J 02tb2v bcftools view --output-file Bulk02t_call.vcf --output-type v Bulk02t_call.vcf.gz 
+bs -J tabix01 tabix --csi -p vcf Bulk01t_call.vcf.gz 
+bs -J tabix02 tabix --csi -p vcf Bulk02t_call.vcf.gz
+# use new tags as filters
+bsm -J bcf02.2.AD bcftools filter -i'%TYPE="snp" && %QUAL>=100 && (AD>=20 && AD<=55) && MQSB>0.5 && ((REF=="C" && ALT=="T") || (REF=="G" && ALT=="A")) && MQ>=20' --output Bulk2_EMS_MQ20_20AD55_MQSB05.2.vcf --output-type v Bulk02t_call.vcf.gz
+bsm -J bcf02.3.AD bcftools filter -i'%TYPE="snp" && %QUAL>=100 && (AD>=10 && AD<=55) && MQSB>0.5 && ((REF=="C" && ALT=="T") || (REF=="G" && ALT=="A")) && MQ>=20' --output Bulk2_EMS_MQ20_10AD55_MQSB05.2.vcf --output-type v Bulk02t_call.vcf.gz
+bsm -J bcf01.2.AD bcftools filter -i'%TYPE="snp" && %QUAL>=100 && (AD>=20 && AD<=55) && MQSB>0.5 && ((REF=="C" && ALT=="T") || (REF=="G" && ALT=="A")) && MQ>=20' --output Bulk1_EMS_MQ20_20AD55_MQSB05.2.vcf --output-type v Bulk01t_call.vcf.gz
+bsm -J bcf01.3.AD bcftools filter -i'%TYPE="snp" && %QUAL>=100 && (AD>=10 && AD<=55) && MQSB>0.5 && ((REF=="C" && ALT=="T") || (REF=="G" && ALT=="A")) && MQ>=20' --output Bulk1_EMS_MQ20_10AD55_MQSB05.2.vcf --output-type v Bulk01t_call.vcf.gz
+bs -J B2R1fq 'fqseqs Bulk2_R1.fq > Bulk2_R1.fq.cnt'
+bs -J B2R2fq 'fqseqs Bulk2_R2.fq > Bulk2_R2.fq.cnt'

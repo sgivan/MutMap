@@ -1,0 +1,92 @@
+bsm -J bcfsplit ../bcf_split.pl --infile homo.bcf.gz --regionsize 1000000 --refseqname concatseq
+bs ~/projects/MutMap/bin/bcf_split.pl --regionsize 8000000 --stopcoord 854000000 --refseqname concatseq --infile homo.bcf.gz 
+sort -k 2 -g homo.*-*.bcf.gz.SNPindex | awk '{ if ($2 == 1) { print $0; } }' | cut -f 7 | sort | uniq | wc -l
+cat homo.*-*.SNPindex > homo_i50K_w500K.SNPindex.txt
+sort -k 2 -g homo_i50K_w500K.SNPindex.txt | awk '{ if ($2 == 1) { print $0; } }' | cut -f 7 | sort | uniq | wc -l
+./bsub_loop.sh -i 50000 -w 1000000 homo.*-*.bcf.gz
+./bsub_loop.sh -i 200000 -w 1000000 homo.*-*.bcf.gz
+awk '{ if ($2 == 1) { print $0; } }' < homo_i200K_w1M.SNPindex.txt | cut -f 7 | sort | uniq
+./bsub_loop.sh -i 200000 -w 2000000 homo.*-*.bcf.gz
+touch homo_i200K_w2M.SNPindex.txt
+awk '{ if ($2 == 1) { print $0; } }' < homo_i200K_w2M.SNPindex.txt | cut -f 7 | sort | uniq # 3
+#
+./bsub_loop.sh -i 400000 -w 4000000 homo.*-*.bcf.gz
+touch homo_i400K_w4M.SNPindex.txt
+cat homo.*-*.bcf.gz.SNPindex >> homo_i400K_w4M.SNPindex.txt
+awk '{ if ($2 == 1) { print $0; } }' < homo_i400K_w4M.SNPindex.txt | cut -f 7 | sort | uniq # 3
+rm homo.*-*.bcf.gz.SNPindex
+#
+./bsub_loop.sh -i 800000 -w 8000000 homo.*-*.bcf.gz
+touch homo_i800K_w8M.SNPindex.txt
+cat homo.*-*.bcf.gz.SNPindex >> homo_i800K_w8M.SNPindex.txt
+awk '{ if ($2 == 1) { print $0; } }' < homo_i800K_w8M.SNPindex.txt | cut -f 7 | sort | uniq # 0
+rm homo.*-*.bcf.gz.SNPindex
+#
+./bsub_loop.sh -i 600000 -w 6000000 homo.*-*.bcf.gz
+touch homo_i600K_w6M.SNPindex.txt
+cat homo.*-*.bcf.gz.SNPindex >> homo_i600K_w6M.SNPindex.txt
+awk '{ if ($2 == 1) { print $0; } }' < homo_i600K_w6M.SNPindex.txt | cut -f 7 | sort | uniq # 3
+rm homo.*-*.bcf.gz.SNPindex
+#
+./bsub_loop.sh -i 500000 -w 2000000 homo.*-*.bcf.gz
+touch homo_i500K_w2M.SNPindex.txt
+cat homo.*-*.bcf.gz.SNPindex >> homo_i500K_w2M.SNPindex.txt
+awk '{ if ($2 == 1) { print $0; } }' < homo_i500K_w2M.SNPindex.txt | cut -f 7 | sort | uniq # 1
+rm homo.*-*.bcf.gz.SNPindex
+#
+./bsub_loop.sh -i 400000 -w 2000000 homo.*-*.bcf.gz
+touch homo_i400K_w2M.SNPindex.txt
+cat homo.*-*.bcf.gz.SNPindex >> homo_i400K_w2M.SNPindex.txt
+awk '{ if ($2 == 1) { print $0; } }' < homo_i400K_w2M.SNPindex.txt | cut -f 7 | sort | uniq # 3
+rm homo.*-*.bcf.gz.SNPindex
+
+./bsub_loop.sh -i 600000 -w 2000000 homo.*-*.bcf.gz
+touch homo_i600K_w2M.SNPindex.txt
+cat homo.*-*.bcf.gz.SNPindex >> homo_i600K_w2M.SNPindex.txt
+awk '{ if ($2 == 1) { print $0; } }' < homo_i600K_w2M.SNPindex.txt | cut -f 7 | sort | uniq # 3
+rm homo.*-*.bcf.gz.SNPindex
+
+#
+# none of the ones below here count
+# because the files contain only 8M of data each
+#
+./bsub_loop.sh -i 500000 -w 4000000 homo.*-*.bcf.gz
+touch homo_i500K_w4M.SNPindex.txt
+#cat homo.*-*.bcf.gz.*.SNPindex >> homo_i500K_w4M.SNPindex.txt
+cat homo.*-*.bcf.gz.SNPindex >> homo_i500K_w4M.SNPindex.txt
+awk '{ if ($2 == 1) { print $0; } }' < homo_i500K_w4M.SNPindex.txt | cut -f 7 | sort | uniq # 1
+rm homo.*-*.bcf.gz.SNPindex
+
+./bsub_loop.sh -i 500000 -w 8000000 homo.*-*.bcf.gz
+touch homo_i500K_w8M.SNPindex.txt
+#cat homo.*-*.bcf.gz.*.SNPindex >> homo_i500K_w8M.SNPindex.txt
+cat homo.*-*.bcf.gz.SNPindex >> homo_i500K_w8M.SNPindex.txt
+awk '{ if ($2 == 1) { print $0; } }' < homo_i500K_w8M.SNPindex.txt | cut -f 7 | sort | uniq # 1
+rm homo.*-*.bcf.gz.SNPindex
+
+./bsub_loop.sh -i 500000 -w 16000000 homo.*-*.bcf.gz
+touch homo_i500K_w16M.SNPindex.txt
+cat homo.*-*.bcf.gz.SNPindex >> homo_i500K_w16M.SNPindex.txt
+awk '{ if ($2 == 1) { print $0; } }' < homo_i500K_w16M.SNPindex.txt | cut -f 7 | sort | uniq # 1
+rm homo.*-*.bcf.gz.SNPindex
+
+./bsub_loop.sh -i 500000 -w 32000000 homo.*-*.bcf.gz
+touch homo_i500K_w32M.SNPindex.txt
+cat homo.*-*.bcf.gz.SNPindex >> homo_i500K_w32M.SNPindex.txt
+awk '{ if ($2 == 1) { print $0; } }' < homo_i500K_w32M.SNPindex.txt | cut -f 7 | sort | uniq # 1
+rm homo.*-*.bcf.gz.SNPindex
+rm *.[oe]
+
+./bsub_loop.sh -i 500000 -w 64000000 homo.*-*.bcf.gz
+touch homo_i500K_w64M.SNPindex.txt
+cat homo.*-*.bcf.gz.SNPindex >> homo_i500K_w64M.SNPindex.txt
+awk '{ if ($2 == 1) { print $0; } }' < homo_i500K_w64M.SNPindex.txt | cut -f 7 | sort | uniq # 1
+rm homo.*-*.bcf.gz.SNPindex
+rm *.[oe]
+
+./bsub_loop.sh -i 500000 -w 128000000 homo.*-*.bcf.gz
+touch homo_i500K_w128M.SNPindex.txt
+cat homo.*-*.bcf.gz.SNPindex >> homo_i500K_w128M.SNPindex.txt
+awk '{ if ($2 == 1) { print $0; } }' < homo_i500K_w128M.SNPindex.txt | cut -f 7 | sort | uniq # 1
+rm *.SNPindex
+rm *.[oe]
