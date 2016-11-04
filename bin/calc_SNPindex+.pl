@@ -33,6 +33,7 @@ use strict;
 use Data::Dumper;
 use Statistics::Descriptive;
 use Bio::SeqIO;
+use Version::Compare;
 use lib '../vcftools/src/perl/';
 use Vcf;
 use lib '../lib';
@@ -69,6 +70,36 @@ my $result = GetOptions(
 if ($help) {
     help();
     exit(0);
+}
+
+# check that we are using at least htslib version 1.3
+my $htsfound = 0;
+my $htsrequired = '1.2.1';
+my $htsfile = '';
+
+#my $which_hts = `which htsfile`;
+open(my $HTS, "-|", "which htsfile 2>&1");
+chomp(my $oneline = <$HTS>);
+$HTS->close();
+#say "which hts: '$which_hts'";
+if ($oneline =~ /no htsfile/) {
+    say "this script requires the htslib, version >= 1.2.1 (http://www.htslib.org/)";
+    exit(2);
+} else {
+#    say "htsfile: '$oneline'";
+}
+
+$htsfile = `$oneline --version`;
+
+if ($htsfile =~ /\(htslib\)\s([\d\.]+)/) {
+    $htsfound = $1;
+} else {
+    say "this script requires the htslib, version >= 1.2.1 (http://www.htslib.org/)";
+    exit(3);
+}
+#say "htsfound = '$htsfound'";
+unless (&Version::Compare::version_compare($htsfound, $htsrequired) >= 0) {
+    die("htslib version must be at least $htsrequired");
 }
 
 # initialize some variables with default values
