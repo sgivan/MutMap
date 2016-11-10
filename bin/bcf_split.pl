@@ -49,7 +49,26 @@ my $tabix = 'tabix';
 $regionsize = 1000000 unless ($regionsize);
 $infile = 'infile' unless ($infile);
 $refseqname = 'refseq' unless ($refseqname);
-$stopcoord = 10000000 unless ($stopcoord);
+#$stopcoord = 10000000 unless ($stopcoord);
+
+if (!$stopcoord && !$notabix) {
+    say "because you didn't use --stopcoord, trying to determine length ref seq with $tabix" if ($verbose);
+    open(my $TABIX1, "-|", "$tabix --only-header $infile");
+    my @tabix1output = <$TABIX1>;
+    close($TABIX1);
+#    say "tabix output:\n@tabix1output";
+    my $length = 0;
+    for my $line (@tabix1output) {
+        if ($line =~ /^##contig.+length=(\d+)/) {
+            $length = $1;
+        }
+    }
+#    say "contig length = '$length'";
+    if ($length > 0) {
+        $stopcoord = $length;
+    }
+#    exit();
+}
 
 my $outfile = $infile;
 $outfile =~ s/\.gz//;

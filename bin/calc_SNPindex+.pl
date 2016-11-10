@@ -34,9 +34,11 @@ use Data::Dumper;
 use Statistics::Descriptive;
 use Bio::SeqIO;
 use Version::Compare;
-use lib '../vcftools/src/perl/';
+#use lib '../vcftools/src/perl/';
+use lib '/home/sgivan/projects/MutMap/vcftools/src/perl';
 use Vcf;
-use lib '../lib';
+#use lib '../lib';
+use lib '/home/sgivan/projects/MutMap/lib';
 use MutMap;
 $Data::Dumper::Deepcopy = 1;
 
@@ -83,7 +85,7 @@ chomp(my $oneline = <$HTS>);
 $HTS->close();
 #say "which hts: '$which_hts'";
 if ($oneline =~ /no htsfile/) {
-    say "this script requires the htslib, version >= 1.2.1 (http://www.htslib.org/)";
+    say "can't find htslib";
     exit(2);
 } else {
 #    say "htsfile: '$oneline'";
@@ -108,6 +110,9 @@ $hetinfile = 'hetinfile' unless ($hetinfile);
 $window = 4000000 unless ($window);
 $increment = 10000 unless ($increment);
 $outfile = $homoinfile . ".SNPindex" unless ($outfile);
+if ($outfile =~ /.+\/(.+?)$/) {
+    $outfile = $1;
+}
 
 # open referencce sequence fasta file
 my $refseqIO = Bio::SeqIO->new(
@@ -407,7 +412,7 @@ if ($debug) {
 }
 
 if (1 || $tabstdout) {
-    open(TAB,">",$outfile);
+    open(TAB,">","./$outfile");
     no strict "vars";
     #for my $xy (sort {$a[0] <=> $b[0]} @plotdata) {
     for my $xy (@plotdata) {
