@@ -31,9 +31,11 @@ use strict;
 use Data::Dumper;
 use Statistics::Descriptive;
 use Bio::SeqIO;
-use lib '../vcftools/src/perl/';
+#use lib '../vcftools/src/perl/';
+use lib '/home/sgivan/projects/MutMap/vcftools/src/perl';
 use Vcf;
-use lib '../lib';
+#use lib '../lib';
+use lib '/home/sgivan/projects/MutMap/lib';
 use MutMap;
 $Data::Dumper::Deepcopy = 1;
 

@@ -44,7 +44,7 @@ do
     
     bsub -u givans@missouri.edu -B -N -R 'span[hosts=1] rusage[mem=10000]' -o %J.o -e %J.e -J ${dir}.${start}-${stop} "~/projects/mutmap/bin/calc_SNPindex+.pl \
     --ignore B2SNPindex_w1_gff_masked_overlap_AD.1.txt --maskedseq ForrestConcat.fa.masked --homoinfile $dir \
-    --hetinfile het.bcf.gz --refseqfile ForrestConcat.fa --tab --gff Gmax_cds.blastn.gff \
+    --hetinfile het1.bcf.gz --refseqfile ForrestConcat.fa --tab --gff Gmax_cds.blastn.gff \
     --mincoord --increment $increment --window $window --refseqname concatseq --start $start --stop $stop  > ${dir}.SNPindex.stdout"
 
 

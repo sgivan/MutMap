@@ -197,6 +197,7 @@ while (my $refseq = $refseqIO->next_seq()) {
     # Start windowing across DNA sequence using 
     # the $window and $increment values to
     # determine coordinates and movement
+    say "start: '$start', stop: '$stop', window: '$window', increment: '$increment'" if ($debug);
     my $window_SNP_index = 0;
     for (my ($j,$k) = ($start,$start + $window - 1); $j <= ($stop - $increment); $j += $increment, $k += $increment) {
         print "\n" if ($debug);
